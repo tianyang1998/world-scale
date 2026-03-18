@@ -1,0 +1,12 @@
+[
+  {"name": "Early PhD Student",        "h_index": 2,  "total_citations": 30,    "years_active": 2,  "pub_count": 4,   "i10_index": 0,  "recent_citations": 25,   "institution_tier": 2},
+  {"name": "Postdoc Researcher",       "h_index": 5,  "total_citations": 150,   "years_active": 4,  "pub_count": 10,  "i10_index": 3,  "recent_citations": 100,  "institution_tier": 2},
+  {"name": "Assistant Professor A",    "h_index": 8,  "total_citations": 400,   "years_active": 6,  "pub_count": 22,  "i10_index": 6,  "recent_citations": 250,  "institution_tier": 3},
+  {"name": "Assistant Professor B",    "h_index": 10, "total_citations": 700,   "years_active": 7,  "pub_count": 30,  "i10_index": 10, "recent_citations": 400,  "institution_tier": 2},
+  {"name": "Associate Professor A",    "h_index": 14, "total_citations": 1500,  "years_active": 10, "pub_count": 55,  "i10_index": 20, "recent_citations": 600,  "institution_tier": 2},
+  {"name": "Associate Professor B",    "h_index": 18, "total_citations": 3000,  "years_active": 12, "pub_count": 75,  "i10_index": 32, "recent_citations": 900,  "institution_tier": 1},
+  {"name": "Full Professor A",         "h_index": 24, "total_citations": 6000,  "years_active": 18, "pub_count": 120, "i10_index": 55, "recent_citations": 1200, "institution_tier": 2},
+  {"name": "Full Professor B",         "h_index": 32, "total_citations": 12000, "years_active": 22, "pub_count": 200, "i10_index": 90, "recent_citations": 2000, "institution_tier": 1},
+  {"name": "Distinguished Professor",  "h_index": 45, "total_citations": 25000, "years_active": 30, "pub_count": 350, "i10_index": 180,"recent_citations": 4000, "institution_tier": 1},
+  {"name": "Field Legend",             "h_index": 72, "total_citations": 80000, "years_active": 38, "pub_count": 500, "i10_index": 350,"recent_citations": 8000, "institution_tier": 1}
+]
