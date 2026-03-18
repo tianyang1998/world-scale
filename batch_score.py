@@ -33,15 +33,19 @@ def main():
         table = Table(title="\nAcademia Realm — Seed Leaderboard", box=box.SIMPLE_HEAD)
         table.add_column("Rank", justify="right", style="dim", width=5)
         table.add_column("Name", width=26)
-        table.add_column("Power", justify="right", width=8)
-        table.add_column("Tier", width=14)
+        table.add_column("Level", width=14)
+        table.add_column("Power", justify="right", style="dim", width=8)
         table.add_column("h", justify="right", width=5)
         table.add_column("Citations", justify="right", width=10)
         table.add_column("Abilities", width=30)
 
         tier_styles = {
-            "Novice": "dim white", "Adept": "green", "Expert": "blue",
-            "Master": "magenta", "Grandmaster": "yellow", "Legend": "bold red",
+            "Apprentice": "dim white", "Initiate": "dim white",
+            "Acolyte": "green",        "Journeyman": "green",    "Adept": "green",
+            "Scholar": "blue",         "Sage": "blue",            "Arcanist": "blue",
+            "Exemplar": "magenta",     "Vanguard": "magenta",
+            "Master": "yellow",        "Grandmaster": "yellow",
+            "Champion": "bold yellow", "Paragon": "bold red",     "Legend": "bold red",
         }
 
         for i, (creds, score) in enumerate(results, 1):
@@ -50,19 +54,19 @@ def main():
             table.add_row(
                 str(i),
                 creds.name,
-                f"[{style}]{score.power_level:,}[/{style}]",
                 f"[{style}]{score.tier}[/{style}]",
+                f"{score.power_level:,}",
                 str(creds.h_index),
                 f"{creds.total_citations:,}",
                 ab_str,
             )
         console.print(table)
     else:
-        print(f"\n{'Rank':<5} {'Name':<26} {'Power':>7}  {'Tier':<14}  {'h':>4}  {'Cites':>8}")
+        print(f"\n{'Rank':<5} {'Name':<26} {'Level':<14}  {'Power':>7}  {'h':>4}  {'Cites':>8}")
         print("─" * 75)
         for i, (creds, score) in enumerate(results, 1):
             ab_str = " ".join(a["icon"] for a in score.abilities) or "—"
-            print(f"{i:<5} {creds.name:<26} {score.power_level:>7,}  {score.tier:<14}  {creds.h_index:>4}  {creds.total_citations:>8,}  {ab_str}")
+            print(f"{i:<5} {creds.name:<26} {score.tier:<14}  {score.power_level:>7,}  {creds.h_index:>4}  {creds.total_citations:>8,}  {ab_str}")
 
     print()
 

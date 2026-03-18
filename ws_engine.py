@@ -79,12 +79,21 @@ WEIGHTS = {
 }
 
 TIERS = [
-    (0,    2000,  "Novice",       "dim white"),
-    (2000, 4000,  "Adept",        "green"),
-    (4000, 6000,  "Expert",       "blue"),
-    (6000, 8000,  "Master",       "magenta"),
-    (8000, 10000, "Grandmaster",  "yellow"),
-    (10000,99999, "Legend",       "bold red"),
+    (0,    800,   "Apprentice",     "dim white"),
+    (800,  1600,  "Initiate",       "dim white"),
+    (1600, 2400,  "Acolyte",        "green"),
+    (2400, 3200,  "Journeyman",     "green"),
+    (3200, 4000,  "Adept",          "green"),
+    (4000, 4800,  "Scholar",        "blue"),
+    (4800, 5600,  "Sage",           "blue"),
+    (5600, 6400,  "Arcanist",       "blue"),
+    (6400, 7200,  "Exemplar",       "magenta"),
+    (7200, 8000,  "Vanguard",       "magenta"),
+    (8000, 8800,  "Master",         "yellow"),
+    (8800, 9600,  "Grandmaster",    "yellow"),
+    (9600, 10400, "Champion",       "bold yellow"),
+    (10400,11200, "Paragon",        "bold red"),
+    (11200,99999, "Legend",         "bold red"),
 ]
 
 # Reference distributions for Academia (used for percentile estimation).
@@ -384,9 +393,9 @@ def render_rich(creds: AcademiaCredentials, result: ScoreBreakdown):
     header.append(f"  {initials}  ", style="bold white on blue")
     header.append(f"  {creds.name}\n", style="bold")
     header.append(f"     Academia Realm  ·  {creds.years_active} years active\n", style="dim")
-    header.append(f"\n     POWER LEVEL  ", style="dim")
-    header.append(f"{result.power_level:,}", style=f"bold {result.tier_color}")
-    header.append(f"   [{result.tier}]", style=result.tier_color)
+    header.append(f"\n     ", style="dim")
+    header.append(f"{result.tier}", style=f"bold {result.tier_color}")
+    header.append(f"   · power {result.power_level:,}", style="dim")
     console.print(Panel(header, border_style="blue", padding=(0, 1)))
 
     # ── Stats table ───────────────────────────────────────────────────────────
@@ -442,7 +451,7 @@ def render_rich(creds: AcademiaCredentials, result: ScoreBreakdown):
 def render_plain(creds: AcademiaCredentials, result: ScoreBreakdown):
     print("\n" + "═" * 50)
     print(f"  {creds.name}  ·  Academia Realm")
-    print(f"  POWER LEVEL: {result.power_level:,}  [{result.tier}]")
+    print(f"  {result.tier}  · power {result.power_level:,}")
     print("═" * 50)
     stats = [
         ("Expertise",   result.expertise),
