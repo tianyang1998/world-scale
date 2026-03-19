@@ -1,4 +1,10 @@
+# Python
 __pycache__/
 *.pyc
 .env
 *.json.bak
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/.env.local
