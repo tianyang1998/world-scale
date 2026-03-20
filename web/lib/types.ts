@@ -62,3 +62,15 @@ export const TIERS = [
   { name: "Paragon",     min: 10400, max: 11199 },
   { name: "Legend",      min: 11200, max: 99999 },
 ];
+
+// Add to the bottom of types.ts
+
+export function getTier(totalPower: number): string {
+  const tier = TIERS.find(t => totalPower >= t.min && totalPower <= t.max);
+  return tier?.name ?? "Apprentice";
+}
+
+export function getTierStyle(totalPower: number) {
+  const name = getTier(totalPower);
+  return { name, ...TIER_GROUPS[name] };
+}
