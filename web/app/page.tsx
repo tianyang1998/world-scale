@@ -1,21 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import CharacterCard from "@/components/CharacterCard";
 import { CharacterScore } from "@/lib/types";
+import { createClient } from "@/lib/supabase-client";
 
 type Realm = "academia" | "tech";
 type InputMode = "scholar" | "github" | "manual";
 
 export default function Home() {
+  const router = useRouter();
   const [realm, setRealm]       = useState<Realm>("academia");
   const [mode, setMode]         = useState<InputMode>("manual");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [score, setScore]       = useState<CharacterScore | null>(null);
 
-  // academia manual fields
-  const [aName,     setAName]     = useState("");
+  // auth state
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [saving, setSaving]       = useState(false);
+  const [saveMsg, setSaveMsg]     = useState<string | null>(null);
+
+  // character name — shared across all realms
+  const [charName, setCharName] = useState("");
+
+  // academia fields (no name)
   const [hIndex,    setHIndex]    = useState("");
   const [citations, setCitations] = useState("");
   const [years,     setYears]     = useState("");
@@ -24,30 +34,37 @@ export default function Home() {
   const [recentCit, setRecentCit] = useState("");
   const [instTier,  setInstTier]  = useState("3");
 
-  // tech fields
+  // tech fields (no name)
   const [ghUser,    setGhUser]    = useState("");
-  const [tName,     setTName]     = useState("");
   const [repos,     setRepos]     = useState("");
   const [stars,     setStars]     = useState("");
   const [followers, setFollowers] = useState("");
   const [commits,   setCommits]   = useState("");
   const [tYears,    setTYears]    = useState("");
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email ?? null);
+    });
+  }, []);
+
   async function handleSubmit() {
     setError("");
     setLoading(true);
     setScore(null);
+    setSaveMsg(null);
 
-    let body: Record<string, string | number> = { realm };
+    let body: Record<string, string | number> = { realm, name: charName };
 
     if (realm === "academia") {
-      body = { realm, name: aName, h_index: hIndex, total_citations: citations,
+      body = { realm, name: charName, h_index: hIndex, total_citations: citations,
                years_active: years, pub_count: pubs, i10_index: i10,
                recent_citations: recentCit, institution_tier: instTier };
     } else if (mode === "github") {
-      body = { realm, github_username: ghUser };
+      body = { realm, name: charName, github_username: ghUser };
     } else {
-      body = { realm, name: tName, repos, stars, followers, commits, years_active: tYears };
+      body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
     }
 
     try {
@@ -59,6 +76,36 @@ export default function Home() {
       setError("Network error — is the dev server running?");
     }
     setLoading(false);
+  }
+
+  async function handleSave() {
+    if (!score) return;
+    if (!userEmail) { router.push("/auth"); return; }
+
+    setSaving(true);
+    setSaveMsg(null);
+
+    try {
+      const res = await fetch("/api/character/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: charName,
+          realm: score.realm,
+          power: score.power,
+          stats: score.stats,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveMsg("Failed to save. Please try again.");
+      } else {
+        setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()}`);
+      }
+    } catch {
+      setSaveMsg("Network error — could not save.");
+    }
+    setSaving(false);
   }
 
   const shareUrl = score
@@ -78,12 +125,40 @@ export default function Home() {
     <main style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "system-ui, sans-serif", padding: "48px 24px" }}>
       <div style={{ maxWidth: "960px", margin: "0 auto" }}>
 
-        {/* Title */}
-        <div style={{ marginBottom: "40px" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#111", margin: 0 }}>World Scale</h1>
-          <p style={{ fontSize: "15px", color: "#888", margin: "6px 0 0" }}>
-            Your real-world credentials, turned into a fantasy character.
-          </p>
+        {/* Title + auth nav */}
+        <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#111", margin: 0 }}>World Scale</h1>
+            <p style={{ fontSize: "15px", color: "#888", margin: "6px 0 0" }}>
+              Your real-world credentials, turned into a fantasy character.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "4px" }}>
+            {userEmail ? (
+              <>
+                <span style={{ fontSize: "13px", color: "#888" }}>{userEmail}</span>
+                <button
+                  onClick={() => router.push("/profile")}
+                  style={{
+                    padding: "7px 16px", borderRadius: "8px", fontSize: "13px",
+                    border: "0.5px solid #ddd", background: "#fff",
+                    color: "#111", cursor: "pointer", fontWeight: 500,
+                  }}>
+                  My Character
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => router.push("/auth")}
+                style={{
+                  padding: "7px 16px", borderRadius: "8px", fontSize: "13px",
+                  border: "none", background: "#111",
+                  color: "#fff", cursor: "pointer", fontWeight: 500,
+                }}>
+                Sign In
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: score ? "1fr 1fr" : "1fr", gap: "32px", alignItems: "start" }}>
@@ -91,10 +166,24 @@ export default function Home() {
           {/* Form */}
           <div style={{ background: "#fff", border: "0.5px solid #e5e5e5", borderRadius: "16px", padding: "28px" }}>
 
+            {/* Character name — shared across all realms */}
+            <div style={{ ...fieldStyle, marginBottom: "24px", paddingBottom: "24px", borderBottom: "0.5px solid #f0f0f0" }}>
+              <label style={{ ...labelStyle, fontSize: "13px", fontWeight: 600, color: "#444" }}>Your name</label>
+              <input
+                style={inputStyle}
+                value={charName}
+                onChange={e => setCharName(e.target.value)}
+                placeholder="Dr. Jane Smith"
+              />
+              <span style={{ fontSize: "11px", color: "#bbb", marginTop: "4px" }}>
+                Your character's display name across all realms
+              </span>
+            </div>
+
             {/* Realm selector */}
             <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
               {(["academia", "tech"] as Realm[]).map(r => (
-                <button key={r} onClick={() => { setRealm(r); setScore(null); setError(""); }}
+                <button key={r} onClick={() => { setRealm(r); setScore(null); setError(""); setSaveMsg(null); }}
                   style={{
                     padding: "8px 20px", borderRadius: "8px", fontSize: "13px", cursor: "pointer",
                     border: realm === r ? "none" : "0.5px solid #ddd",
@@ -110,10 +199,6 @@ export default function Home() {
             {/* Academia form */}
             {realm === "academia" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Full name</label>
-                  <input style={inputStyle} value={aName} onChange={e => setAName(e.target.value)} placeholder="Dr. Jane Smith" />
-                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                   <div style={fieldStyle}>
                     <label style={labelStyle}>H-index</label>
@@ -175,10 +260,6 @@ export default function Home() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                    <div style={fieldStyle}>
-                      <label style={labelStyle}>Full name</label>
-                      <input style={inputStyle} value={tName} onChange={e => setTName(e.target.value)} placeholder="Linus Torvalds" />
-                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                       <div style={fieldStyle}>
                         <label style={labelStyle}>Public repos</label>
@@ -222,10 +303,45 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Card */}
+          {/* Card + save button */}
           {score && (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <CharacterCard score={score} shareUrl={shareUrl} />
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  width: "100%", padding: "12px",
+                  borderRadius: "8px", border: "none",
+                  background: saving ? "#ccc" : "#4f46e5",
+                  color: "#fff", fontSize: "14px", fontWeight: 600,
+                  cursor: saving ? "default" : "pointer",
+                }}>
+                {saving ? "Saving…" : userEmail ? "Save character" : "Sign in to save"}
+              </button>
+
+              {saveMsg && (
+                <div style={{
+                  padding: "10px 14px", borderRadius: "8px", fontSize: "13px", textAlign: "center",
+                  background: saveMsg.startsWith("Saved") ? "#EAF3DE" : "#FCEBEB",
+                  color: saveMsg.startsWith("Saved") ? "#27500A" : "#A32D2D",
+                }}>
+                  {saveMsg}
+                  {saveMsg.startsWith("Saved") && (
+                    <button
+                      onClick={() => router.push("/profile")}
+                      style={{
+                        marginLeft: "12px", background: "none", border: "none",
+                        color: "#3B6D11", fontSize: "13px", cursor: "pointer",
+                        textDecoration: "underline", padding: 0,
+                      }}>
+                      View profile →
+                    </button>
+                  )}
+                </div>
+              )}
+
               <p style={{ fontSize: "12px", color: "#aaa", textAlign: "center", margin: 0 }}>
                 Click &ldquo;Copy shareable link&rdquo; to get an OG image URL for Twitter / LinkedIn
               </p>
