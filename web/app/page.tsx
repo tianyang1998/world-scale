@@ -134,6 +134,15 @@ export default function Home() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "4px" }}>
+            <button
+              onClick={() => router.push('/leaderboard')}
+              style={{
+                padding: '7px 16px', borderRadius: '8px', fontSize: '13px',
+                border: '0.5px solid #ddd', background: '#fff',
+                color: '#111', cursor: 'pointer', fontWeight: 500,
+              }}>
+              Leaderboard
+            </button>
             {userEmail ? (
               <>
                 <span style={{ fontSize: "13px", color: "#888" }}>{userEmail}</span>
