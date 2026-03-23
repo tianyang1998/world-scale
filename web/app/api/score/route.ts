@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scoreAcademia, scoreTech } from "@/lib/scorer";
+import { scoreAcademia, scoreTech, scoreMedicine, scoreCreative, scoreLaw } from "@/lib/scorer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (realm === "tech") {
-      // If a github_username is provided, fetch from GitHub API
       if (body.github_username) {
         const ghData = await fetchGitHub(body.github_username);
         if (!ghData.ok) {
@@ -31,7 +30,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(score);
       }
 
-      // Manual tech input
       const score = scoreTech({
         name:         body.name         || "Unknown",
         repos:        Number(body.repos)        || 0,
@@ -43,7 +41,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(score);
     }
 
-    return NextResponse.json({ error: "realm must be 'academia' or 'tech'" }, { status: 400 });
+    if (realm === "medicine") {
+      const score = scoreMedicine({
+        name:                body.name                || "Unknown",
+        years_active:        Number(body.years_active)        || 1,
+        papers:              Number(body.papers)              || 0,
+        citations:           Number(body.citations)           || 0,
+        patients_treated:    Number(body.patients_treated)    || 0,
+        specialization_tier: Number(body.specialization_tier) || 3,
+        hospital_tier:       Number(body.hospital_tier)       || 3,
+        board_certifications: Number(body.board_certifications) || 0,
+      });
+      return NextResponse.json(score);
+    }
+
+    if (realm === "creative") {
+      const score = scoreCreative({
+        name:                    body.name                    || "Unknown",
+        years_active:            Number(body.years_active)            || 1,
+        major_works:             Number(body.major_works)             || 0,
+        awards:                  Number(body.awards)                  || 0,
+        audience_size:           Number(body.audience_size)           || 0,
+        exhibitions_or_releases: Number(body.exhibitions_or_releases) || 0,
+      });
+      return NextResponse.json(score);
+    }
+
+    if (realm === "law") {
+      const score = scoreLaw({
+        name:                body.name                || "Unknown",
+        years_active:        Number(body.years_active)        || 1,
+        notable_cases:       Number(body.notable_cases)       || 0,
+        cases_won:           Number(body.cases_won)           || 0,
+        bar_admissions:      Number(body.bar_admissions)      || 1,
+        firm_tier:           Number(body.firm_tier)           || 3,
+        specialization_tier: Number(body.specialization_tier) || 2,
+      });
+      return NextResponse.json(score);
+    }
+
+    return NextResponse.json(
+      { error: "realm must be 'academia', 'tech', 'medicine', 'creative', or 'law'" },
+      { status: 400 }
+    );
 
   } catch (err) {
     console.error("/api/score error:", err);
@@ -61,12 +101,10 @@ async function fetchGitHub(username: string): Promise<
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  // Use GitHub token if set (raises rate limit from 60 to 5000 req/hr)
   if (process.env.GITHUB_TOKEN) {
     headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
 
-  // Fetch user profile
   const userRes = await fetch(`https://api.github.com/users/${username}`, { headers });
   if (!userRes.ok) {
     if (userRes.status === 404) return { ok: false, error: `GitHub user '${username}' not found` };
@@ -74,7 +112,6 @@ async function fetchGitHub(username: string): Promise<
   }
   const user = await userRes.json();
 
-  // Fetch repos to sum up stars
   const reposRes = await fetch(
     `https://api.github.com/users/${username}/repos?per_page=100&sort=pushed`,
     { headers }
@@ -84,12 +121,9 @@ async function fetchGitHub(username: string): Promise<
     ? repos.reduce((sum: number, r: { stargazers_count: number }) => sum + (r.stargazers_count || 0), 0)
     : 0;
 
-  // Estimate years active from account creation date
   const createdYear = new Date(user.created_at).getFullYear();
   const years_active = new Date().getFullYear() - createdYear || 1;
 
-  // Commit count: use contribution events (public only, approximate)
-  // GitHub doesn't expose total commits easily without auth — use public events as proxy
   const eventsRes = await fetch(
     `https://api.github.com/users/${username}/events/public?per_page=100`,
     { headers }
@@ -98,7 +132,6 @@ async function fetchGitHub(username: string): Promise<
   const recentCommits = Array.isArray(events)
     ? events.filter((e: { type: string }) => e.type === "PushEvent").length * 10
     : 0;
-  // Scale up the proxy — assume recent 100 events represent ~6 months of activity
   const estimatedCommits = Math.max(recentCommits, years_active * 50);
 
   return {

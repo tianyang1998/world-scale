@@ -23,6 +23,14 @@ const STAT_LABELS: Record<string, { label: string; icon: string }> = {
   network:     { label: "Network",     icon: "🕸" },
 };
 
+const REALM_META: Record<string, { label: string; icon: string }> = {
+  academia: { label: "Academia Realm", icon: "📚" },
+  tech:     { label: "Tech Realm",     icon: "⚡" },
+  medicine: { label: "Medicine Realm", icon: "⚕️" },
+  creative: { label: "Creative Realm", icon: "🎨" },
+  law:      { label: "Law Realm",      icon: "⚖️" },
+};
+
 export default function CharacterCard({ score, shareUrl }: Props) {
   const colors = TIER_GROUPS[score.tier] || TIER_GROUPS["Apprentice"];
   const initials = score.name
@@ -32,8 +40,7 @@ export default function CharacterCard({ score, shareUrl }: Props) {
     .map((w) => w[0].toUpperCase())
     .join("");
 
-  const realmLabel = score.realm === "academia" ? "Academia Realm" : "Tech Realm";
-  const realmIcon  = score.realm === "academia" ? "📚" : "⚡";
+  const realm = REALM_META[score.realm] ?? { label: `${score.realm} Realm`, icon: "🌐" };
 
   function copyShare() {
     if (shareUrl) navigator.clipboard.writeText(shareUrl);
@@ -57,14 +64,14 @@ export default function CharacterCard({ score, shareUrl }: Props) {
           justifyContent: "center", fontSize: "20px", fontWeight: 600,
           color: colors.text, flexShrink: 0,
         }}>
-          {initials}
+          {initials || "?"}
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: "18px", fontWeight: 600, color: "#111", marginBottom: "2px" }}>
-            {score.name}
+            {score.name || "Unnamed"}
           </div>
           <div style={{ fontSize: "13px", color: "#888" }}>
-            {realmIcon} {realmLabel}
+            {realm.icon} {realm.label}
           </div>
         </div>
       </div>

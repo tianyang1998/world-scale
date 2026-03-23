@@ -6,8 +6,16 @@ import CharacterCard from "@/components/CharacterCard";
 import { CharacterScore } from "@/lib/types";
 import { createClient } from "@/lib/supabase-client";
 
-type Realm = "academia" | "tech";
+type Realm = "academia" | "tech" | "medicine" | "creative" | "law";
 type InputMode = "scholar" | "github" | "manual";
+
+const REALM_LABELS: Record<Realm, string> = {
+  academia: "📚 Academia",
+  tech:     "⚡ Tech",
+  medicine: "⚕️ Medicine",
+  creative: "🎨 Creative",
+  law:      "⚖️ Law",
+};
 
 export default function Home() {
   const router = useRouter();
@@ -25,7 +33,7 @@ export default function Home() {
   // character name — shared across all realms
   const [charName, setCharName] = useState("");
 
-  // academia fields (no name)
+  // academia fields
   const [hIndex,    setHIndex]    = useState("");
   const [citations, setCitations] = useState("");
   const [years,     setYears]     = useState("");
@@ -34,13 +42,37 @@ export default function Home() {
   const [recentCit, setRecentCit] = useState("");
   const [instTier,  setInstTier]  = useState("3");
 
-  // tech fields (no name)
+  // tech fields
   const [ghUser,    setGhUser]    = useState("");
   const [repos,     setRepos]     = useState("");
   const [stars,     setStars]     = useState("");
   const [followers, setFollowers] = useState("");
   const [commits,   setCommits]   = useState("");
   const [tYears,    setTYears]    = useState("");
+
+  // medicine fields
+  const [medYears,       setMedYears]       = useState("");
+  const [medPapers,      setMedPapers]      = useState("");
+  const [medCitations,   setMedCitations]   = useState("");
+  const [medPatients,    setMedPatients]    = useState("");
+  const [medSpecTier,    setMedSpecTier]    = useState("3");
+  const [medHospTier,    setMedHospTier]    = useState("3");
+  const [medBoardCerts,  setMedBoardCerts]  = useState("");
+
+  // creative fields
+  const [creYears,        setCreYears]        = useState("");
+  const [creMajorWorks,   setCreMajorWorks]   = useState("");
+  const [creAwards,       setCreAwards]       = useState("");
+  const [creAudience,     setCreAudience]     = useState("");
+  const [creExhibitions,  setCreExhibitions]  = useState("");
+
+  // law fields
+  const [lawYears,      setLawYears]      = useState("");
+  const [lawCases,      setLawCases]      = useState("");
+  const [lawWins,       setLawWins]       = useState("");
+  const [lawAdmissions, setLawAdmissions] = useState("");
+  const [lawFirmTier,   setLawFirmTier]   = useState("3");
+  const [lawSpecTier,   setLawSpecTier]   = useState("2");
 
   useEffect(() => {
     const supabase = createClient();
@@ -61,10 +93,25 @@ export default function Home() {
       body = { realm, name: charName, h_index: hIndex, total_citations: citations,
                years_active: years, pub_count: pubs, i10_index: i10,
                recent_citations: recentCit, institution_tier: instTier };
-    } else if (mode === "github") {
-      body = { realm, name: charName, github_username: ghUser };
-    } else {
-      body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
+    } else if (realm === "tech") {
+      if (mode === "github") {
+        body = { realm, name: charName, github_username: ghUser };
+      } else {
+        body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
+      }
+    } else if (realm === "medicine") {
+      body = { realm, name: charName, years_active: medYears, papers: medPapers,
+               citations: medCitations, patients_treated: medPatients,
+               specialization_tier: medSpecTier, hospital_tier: medHospTier,
+               board_certifications: medBoardCerts };
+    } else if (realm === "creative") {
+      body = { realm, name: charName, years_active: creYears, major_works: creMajorWorks,
+               awards: creAwards, audience_size: creAudience,
+               exhibitions_or_releases: creExhibitions };
+    } else if (realm === "law") {
+      body = { realm, name: charName, years_active: lawYears, notable_cases: lawCases,
+               cases_won: lawWins, bar_admissions: lawAdmissions,
+               firm_tier: lawFirmTier, specialization_tier: lawSpecTier };
     }
 
     try {
@@ -120,6 +167,7 @@ export default function Home() {
   };
   const labelStyle = { fontSize: "12px", color: "#666", display: "block" as const };
   const fieldStyle = { display: "flex", flexDirection: "column" as const, gap: "2px" };
+  const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" } as const;
 
   return (
     <main style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "system-ui, sans-serif", padding: "48px 24px" }}>
@@ -134,36 +182,18 @@ export default function Home() {
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "4px" }}>
-            <button
-              onClick={() => router.push('/leaderboard')}
-              style={{
-                padding: '7px 16px', borderRadius: '8px', fontSize: '13px',
-                border: '0.5px solid #ddd', background: '#fff',
-                color: '#111', cursor: 'pointer', fontWeight: 500,
-              }}>
+            <button onClick={() => router.push('/leaderboard')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>
               Leaderboard
             </button>
             {userEmail ? (
               <>
                 <span style={{ fontSize: "13px", color: "#888" }}>{userEmail}</span>
-                <button
-                  onClick={() => router.push("/profile")}
-                  style={{
-                    padding: "7px 16px", borderRadius: "8px", fontSize: "13px",
-                    border: "0.5px solid #ddd", background: "#fff",
-                    color: "#111", cursor: "pointer", fontWeight: 500,
-                  }}>
+                <button onClick={() => router.push("/profile")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "0.5px solid #ddd", background: "#fff", color: "#111", cursor: "pointer", fontWeight: 500 }}>
                   My Character
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => router.push("/auth")}
-                style={{
-                  padding: "7px 16px", borderRadius: "8px", fontSize: "13px",
-                  border: "none", background: "#111",
-                  color: "#fff", cursor: "pointer", fontWeight: 500,
-                }}>
+              <button onClick={() => router.push("/auth")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "none", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 500 }}>
                 Sign In
               </button>
             )}
@@ -175,32 +205,25 @@ export default function Home() {
           {/* Form */}
           <div style={{ background: "#fff", border: "0.5px solid #e5e5e5", borderRadius: "16px", padding: "28px" }}>
 
-            {/* Character name — shared across all realms */}
+            {/* Character name */}
             <div style={{ ...fieldStyle, marginBottom: "24px", paddingBottom: "24px", borderBottom: "0.5px solid #f0f0f0" }}>
               <label style={{ ...labelStyle, fontSize: "13px", fontWeight: 600, color: "#444" }}>Your name</label>
-              <input
-                style={inputStyle}
-                value={charName}
-                onChange={e => setCharName(e.target.value)}
-                placeholder="Dr. Jane Smith"
-              />
-              <span style={{ fontSize: "11px", color: "#bbb", marginTop: "4px" }}>
-                Your character's display name across all realms
-              </span>
+              <input style={inputStyle} value={charName} onChange={e => setCharName(e.target.value)} placeholder="Dr. Jane Smith" />
+              <span style={{ fontSize: "11px", color: "#bbb", marginTop: "4px" }}>Your character's display name across all realms</span>
             </div>
 
             {/* Realm selector */}
-            <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
-              {(["academia", "tech"] as Realm[]).map(r => (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px" }}>
+              {(Object.keys(REALM_LABELS) as Realm[]).map(r => (
                 <button key={r} onClick={() => { setRealm(r); setScore(null); setError(""); setSaveMsg(null); }}
                   style={{
-                    padding: "8px 20px", borderRadius: "8px", fontSize: "13px", cursor: "pointer",
+                    padding: "8px 16px", borderRadius: "8px", fontSize: "13px", cursor: "pointer",
                     border: realm === r ? "none" : "0.5px solid #ddd",
                     background: realm === r ? "#111" : "none",
                     color: realm === r ? "#fff" : "#666",
                     fontWeight: realm === r ? 600 : 400,
                   }}>
-                  {r === "academia" ? "📚 Academia" : "⚡ Tech"}
+                  {REALM_LABELS[r]}
                 </button>
               ))}
             </div>
@@ -208,31 +231,13 @@ export default function Home() {
             {/* Academia form */}
             {realm === "academia" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>H-index</label>
-                    <input style={inputStyle} type="number" value={hIndex} onChange={e => setHIndex(e.target.value)} placeholder="12" />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Total citations</label>
-                    <input style={inputStyle} type="number" value={citations} onChange={e => setCitations(e.target.value)} placeholder="1500" />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Years active</label>
-                    <input style={inputStyle} type="number" value={years} onChange={e => setYears(e.target.value)} placeholder="8" />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Publications</label>
-                    <input style={inputStyle} type="number" value={pubs} onChange={e => setPubs(e.target.value)} placeholder="35" />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>i10-index</label>
-                    <input style={inputStyle} type="number" value={i10} onChange={e => setI10(e.target.value)} placeholder="10" />
-                  </div>
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Citations (last 5 yrs)</label>
-                    <input style={inputStyle} type="number" value={recentCit} onChange={e => setRecentCit(e.target.value)} placeholder="500" />
-                  </div>
+                <div style={grid2}>
+                  <div style={fieldStyle}><label style={labelStyle}>H-index</label><input style={inputStyle} type="number" value={hIndex} onChange={e => setHIndex(e.target.value)} placeholder="12" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Total citations</label><input style={inputStyle} type="number" value={citations} onChange={e => setCitations(e.target.value)} placeholder="1500" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Years active</label><input style={inputStyle} type="number" value={years} onChange={e => setYears(e.target.value)} placeholder="8" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Publications</label><input style={inputStyle} type="number" value={pubs} onChange={e => setPubs(e.target.value)} placeholder="35" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>i10-index</label><input style={inputStyle} type="number" value={i10} onChange={e => setI10(e.target.value)} placeholder="10" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Citations (last 5 yrs)</label><input style={inputStyle} type="number" value={recentCit} onChange={e => setRecentCit(e.target.value)} placeholder="500" /></div>
                 </div>
                 <div style={fieldStyle}>
                   <label style={labelStyle}>Institution tier</label>
@@ -250,50 +255,92 @@ export default function Home() {
               <>
                 <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
                   {(["github", "manual"] as InputMode[]).map(m => (
-                    <button key={m} onClick={() => setMode(m)}
-                      style={{
-                        padding: "6px 14px", borderRadius: "6px", fontSize: "12px", cursor: "pointer",
-                        border: mode === m ? "none" : "0.5px solid #ddd",
-                        background: mode === m ? "#111" : "none",
-                        color: mode === m ? "#fff" : "#666",
-                      }}>
+                    <button key={m} onClick={() => setMode(m)} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", cursor: "pointer", border: mode === m ? "none" : "0.5px solid #ddd", background: mode === m ? "#111" : "none", color: mode === m ? "#fff" : "#666" }}>
                       {m === "github" ? "🐙 GitHub username" : "✏️ Manual"}
                     </button>
                   ))}
                 </div>
-
                 {mode === "github" ? (
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>GitHub username</label>
-                    <input style={inputStyle} value={ghUser} onChange={e => setGhUser(e.target.value)} placeholder="torvalds" />
-                  </div>
+                  <div style={fieldStyle}><label style={labelStyle}>GitHub username</label><input style={inputStyle} value={ghUser} onChange={e => setGhUser(e.target.value)} placeholder="torvalds" /></div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                      <div style={fieldStyle}>
-                        <label style={labelStyle}>Public repos</label>
-                        <input style={inputStyle} type="number" value={repos} onChange={e => setRepos(e.target.value)} placeholder="40" />
-                      </div>
-                      <div style={fieldStyle}>
-                        <label style={labelStyle}>Total stars</label>
-                        <input style={inputStyle} type="number" value={stars} onChange={e => setStars(e.target.value)} placeholder="2000" />
-                      </div>
-                      <div style={fieldStyle}>
-                        <label style={labelStyle}>Followers</label>
-                        <input style={inputStyle} type="number" value={followers} onChange={e => setFollowers(e.target.value)} placeholder="500" />
-                      </div>
-                      <div style={fieldStyle}>
-                        <label style={labelStyle}>Est. total commits</label>
-                        <input style={inputStyle} type="number" value={commits} onChange={e => setCommits(e.target.value)} placeholder="1000" />
-                      </div>
-                      <div style={fieldStyle}>
-                        <label style={labelStyle}>Years active</label>
-                        <input style={inputStyle} type="number" value={tYears} onChange={e => setTYears(e.target.value)} placeholder="6" />
-                      </div>
-                    </div>
+                  <div style={grid2}>
+                    <div style={fieldStyle}><label style={labelStyle}>Public repos</label><input style={inputStyle} type="number" value={repos} onChange={e => setRepos(e.target.value)} placeholder="40" /></div>
+                    <div style={fieldStyle}><label style={labelStyle}>Total stars</label><input style={inputStyle} type="number" value={stars} onChange={e => setStars(e.target.value)} placeholder="2000" /></div>
+                    <div style={fieldStyle}><label style={labelStyle}>Followers</label><input style={inputStyle} type="number" value={followers} onChange={e => setFollowers(e.target.value)} placeholder="500" /></div>
+                    <div style={fieldStyle}><label style={labelStyle}>Est. total commits</label><input style={inputStyle} type="number" value={commits} onChange={e => setCommits(e.target.value)} placeholder="1000" /></div>
+                    <div style={fieldStyle}><label style={labelStyle}>Years active</label><input style={inputStyle} type="number" value={tYears} onChange={e => setTYears(e.target.value)} placeholder="6" /></div>
                   </div>
                 )}
               </>
+            )}
+
+            {/* Medicine form */}
+            {realm === "medicine" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={grid2}>
+                  <div style={fieldStyle}><label style={labelStyle}>Years practicing</label><input style={inputStyle} type="number" value={medYears} onChange={e => setMedYears(e.target.value)} placeholder="10" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Research papers</label><input style={inputStyle} type="number" value={medPapers} onChange={e => setMedPapers(e.target.value)} placeholder="15" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Paper citations</label><input style={inputStyle} type="number" value={medCitations} onChange={e => setMedCitations(e.target.value)} placeholder="300" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Patients treated</label><input style={inputStyle} type="number" value={medPatients} onChange={e => setMedPatients(e.target.value)} placeholder="1500" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Board certifications</label><input style={inputStyle} type="number" value={medBoardCerts} onChange={e => setMedBoardCerts(e.target.value)} placeholder="2" /></div>
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Specialization</label>
+                  <select style={inputStyle} value={medSpecTier} onChange={e => setMedSpecTier(e.target.value)}>
+                    <option value="1">Highly specialized (neurosurgery, cardiothoracic…)</option>
+                    <option value="2">Specialist (cardiology, oncology, radiology…)</option>
+                    <option value="3">General practice</option>
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Hospital tier</label>
+                  <select style={inputStyle} value={medHospTier} onChange={e => setMedHospTier(e.target.value)}>
+                    <option value="1">Top research hospital (Mayo, Johns Hopkins…)</option>
+                    <option value="2">Regional medical center</option>
+                    <option value="3">Community hospital / clinic</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Creative form */}
+            {realm === "creative" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={grid2}>
+                  <div style={fieldStyle}><label style={labelStyle}>Years active</label><input style={inputStyle} type="number" value={creYears} onChange={e => setCreYears(e.target.value)} placeholder="8" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Major works</label><input style={inputStyle} type="number" value={creMajorWorks} onChange={e => setCreMajorWorks(e.target.value)} placeholder="12" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Awards / honours</label><input style={inputStyle} type="number" value={creAwards} onChange={e => setCreAwards(e.target.value)} placeholder="3" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Audience size</label><input style={inputStyle} type="number" value={creAudience} onChange={e => setCreAudience(e.target.value)} placeholder="50000" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Exhibitions / releases</label><input style={inputStyle} type="number" value={creExhibitions} onChange={e => setCreExhibitions(e.target.value)} placeholder="6" /></div>
+                </div>
+              </div>
+            )}
+
+            {/* Law form */}
+            {realm === "law" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={grid2}>
+                  <div style={fieldStyle}><label style={labelStyle}>Years practicing</label><input style={inputStyle} type="number" value={lawYears} onChange={e => setLawYears(e.target.value)} placeholder="8" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Notable cases</label><input style={inputStyle} type="number" value={lawCases} onChange={e => setLawCases(e.target.value)} placeholder="40" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Cases won</label><input style={inputStyle} type="number" value={lawWins} onChange={e => setLawWins(e.target.value)} placeholder="28" /></div>
+                  <div style={fieldStyle}><label style={labelStyle}>Bar admissions</label><input style={inputStyle} type="number" value={lawAdmissions} onChange={e => setLawAdmissions(e.target.value)} placeholder="2" /></div>
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Firm tier</label>
+                  <select style={inputStyle} value={lawFirmTier} onChange={e => setLawFirmTier(e.target.value)}>
+                    <option value="1">Top global firm (Cravath, Skadden, Linklaters…)</option>
+                    <option value="2">Regional / mid-size firm</option>
+                    <option value="3">Solo practice / small firm</option>
+                  </select>
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Specialization</label>
+                  <select style={inputStyle} value={lawSpecTier} onChange={e => setLawSpecTier(e.target.value)}>
+                    <option value="1">Highly specialized (IP, M&A, constitutional…)</option>
+                    <option value="2">General practice</option>
+                  </select>
+                </div>
+              </div>
             )}
 
             {error && (
@@ -303,11 +350,7 @@ export default function Home() {
             )}
 
             <button onClick={handleSubmit} disabled={loading}
-              style={{
-                marginTop: "20px", width: "100%", padding: "12px",
-                borderRadius: "8px", border: "none", background: loading ? "#ccc" : "#111",
-                color: "#fff", fontSize: "14px", fontWeight: 600, cursor: loading ? "default" : "pointer",
-              }}>
+              style={{ marginTop: "20px", width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: loading ? "#ccc" : "#111", color: "#fff", fontSize: "14px", fontWeight: 600, cursor: loading ? "default" : "pointer" }}>
               {loading ? "Calculating…" : "Generate character →"}
             </button>
           </div>
@@ -317,34 +360,16 @@ export default function Home() {
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <CharacterCard score={score} shareUrl={shareUrl} />
 
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  width: "100%", padding: "12px",
-                  borderRadius: "8px", border: "none",
-                  background: saving ? "#ccc" : "#4f46e5",
-                  color: "#fff", fontSize: "14px", fontWeight: 600,
-                  cursor: saving ? "default" : "pointer",
-                }}>
+              <button onClick={handleSave} disabled={saving}
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: saving ? "#ccc" : "#4f46e5", color: "#fff", fontSize: "14px", fontWeight: 600, cursor: saving ? "default" : "pointer" }}>
                 {saving ? "Saving…" : userEmail ? "Save character" : "Sign in to save"}
               </button>
 
               {saveMsg && (
-                <div style={{
-                  padding: "10px 14px", borderRadius: "8px", fontSize: "13px", textAlign: "center",
-                  background: saveMsg.startsWith("Saved") ? "#EAF3DE" : "#FCEBEB",
-                  color: saveMsg.startsWith("Saved") ? "#27500A" : "#A32D2D",
-                }}>
+                <div style={{ padding: "10px 14px", borderRadius: "8px", fontSize: "13px", textAlign: "center", background: saveMsg.startsWith("Saved") ? "#EAF3DE" : "#FCEBEB", color: saveMsg.startsWith("Saved") ? "#27500A" : "#A32D2D" }}>
                   {saveMsg}
                   {saveMsg.startsWith("Saved") && (
-                    <button
-                      onClick={() => router.push("/profile")}
-                      style={{
-                        marginLeft: "12px", background: "none", border: "none",
-                        color: "#3B6D11", fontSize: "13px", cursor: "pointer",
-                        textDecoration: "underline", padding: 0,
-                      }}>
+                    <button onClick={() => router.push("/profile")} style={{ marginLeft: "12px", background: "none", border: "none", color: "#3B6D11", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
                       View profile →
                     </button>
                   )}

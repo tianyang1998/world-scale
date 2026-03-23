@@ -1,4 +1,4 @@
-export type Realm = "academia" | "tech";
+export type Realm = "academia" | "tech" | "medicine" | "creative" | "law";
 
 export interface CharacterScore {
   name: string;
