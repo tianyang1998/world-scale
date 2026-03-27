@@ -147,7 +147,7 @@ export default function Home() {
       if (!res.ok) {
         setSaveMsg("Failed to save. Please try again.");
       } else {
-        setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()}`);
+        setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()} · +${data.gold_earned} gold`);
       }
     } catch {
       setSaveMsg("Network error — could not save.");
@@ -184,6 +184,9 @@ export default function Home() {
           <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "4px" }}>
             <button onClick={() => router.push('/leaderboard')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>
               Leaderboard
+            </button>
+            <button onClick={() => router.push('/map')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>
+              Map
             </button>
             {userEmail ? (
               <>
