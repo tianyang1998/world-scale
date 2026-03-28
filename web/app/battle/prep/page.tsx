@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { getTierStyle } from '@/lib/types'
@@ -13,7 +13,7 @@ interface CharacterData {
   realms: Record<string, { power: number }>
 }
 
-export default function PrepPage() {
+function PrepPageInner() {
   const router = useRouter()
   const params = useSearchParams()
   const battleId  = params.get('battle_id')
@@ -223,5 +223,17 @@ export default function PrepPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function PrepPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#6b5c80', fontFamily: '"Crimson Text", serif', fontSize: '1.1rem' }}>Preparing for battle...</p>
+      </div>
+    }>
+      <PrepPageInner />
+    </Suspense>
   )
 }
