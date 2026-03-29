@@ -60,14 +60,16 @@ export default function MapPage() {
   const animFrameRef = useRef<number>(0)
   const lastBroadcast = useRef<number>(0)
 
+  // ── Stable Supabase client — never recreated on re-render ─────────────────
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+
   const [userId,    setUserId]    = useState<string | null>(null)
   const [myTier,    setMyTier]    = useState<string>('')
   const [challenge, setChallenge] = useState<ChallengeRequest | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<MapPlayer | null>(null)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState<string | null>(null)
-
-  const supabase = createClient()
 
   // ── Canvas draw loop ───────────────────────────────────────────────────────
   const draw = useCallback(() => {
@@ -124,9 +126,9 @@ export default function MapPage() {
       const sy = player.y
       if (sx < -40 || sx > cw + 40) return
 
-      const isMe = player.userId === userId
+      const isMe = player.userId === myPlayerRef.current?.userId
       const ts   = getTierStyle(player.totalPower)
-      const sameTier = me ? isSameTier(player.tier, me.tier) : false
+      const sameTier = myPlayerRef.current ? isSameTier(player.tier, myPlayerRef.current.tier) : false
 
       // Player circle
       ctx.beginPath()
@@ -165,7 +167,7 @@ export default function MapPage() {
     })
 
     animFrameRef.current = requestAnimationFrame(draw)
-  }, [userId])
+  }, [])
 
   // ── Movement loop ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -213,7 +215,7 @@ export default function MapPage() {
     // Check if click hits a player circle
     let hit: MapPlayer | null = null
     playersRef.current.forEach(player => {
-      if (player.userId === userId) return
+      if (player.userId === myPlayerRef.current?.userId) return
       const sx = player.x - camX
       const sy = player.y
       const dist = Math.sqrt((clickX - sx) ** 2 + (clickY - sy) ** 2)
@@ -245,7 +247,7 @@ export default function MapPage() {
       event: 'challenge',
       payload: {
         toId:      target.userId,
-        fromId:    userId,
+        fromId:    myPlayerRef.current?.userId,
         fromName:  myPlayerRef.current?.name ?? 'Unknown',
         battleId:  data.battle_id,
       },
@@ -346,7 +348,10 @@ export default function MapPage() {
 
     return () => {
       cancelAnimationFrame(animFrameRef.current)
-      channelRef.current?.unsubscribe()
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+      }
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup',   onKeyUp)
     }
