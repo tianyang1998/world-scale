@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
         name:             body.name             || "Unknown",
         h_index:          Number(body.h_index)          || 0,
         total_citations:  Number(body.total_citations)  || 0,
-        years_active:     Number(body.years_active)     || 1,
+        years_active:     Number(body.years_active)     || 0,
         pub_count:        Number(body.pub_count)        || 0,
         i10_index:        Number(body.i10_index)        || 0,
         recent_citations: Number(body.recent_citations) || 0,
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         stars:        Number(body.stars)        || 0,
         followers:    Number(body.followers)    || 0,
         commits:      Number(body.commits)      || 0,
-        years_active: Number(body.years_active) || 1,
+        years_active: Number(body.years_active) || 0,
       });
       return NextResponse.json(score);
     }
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (realm === "medicine") {
       const score = scoreMedicine({
         name:                body.name                || "Unknown",
-        years_active:        Number(body.years_active)        || 1,
+        years_active:        Number(body.years_active)        || 0,
         papers:              Number(body.papers)              || 0,
         citations:           Number(body.citations)           || 0,
         patients_treated:    Number(body.patients_treated)    || 0,
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (realm === "creative") {
       const score = scoreCreative({
         name:                    body.name                    || "Unknown",
-        years_active:            Number(body.years_active)            || 1,
+        years_active:            Number(body.years_active)            || 0,
         major_works:             Number(body.major_works)             || 0,
         awards:                  Number(body.awards)                  || 0,
         audience_size:           Number(body.audience_size)           || 0,
@@ -70,10 +70,10 @@ export async function POST(req: NextRequest) {
     if (realm === "law") {
       const score = scoreLaw({
         name:                body.name                || "Unknown",
-        years_active:        Number(body.years_active)        || 1,
+        years_active:        Number(body.years_active)        || 0,
         notable_cases:       Number(body.notable_cases)       || 0,
         cases_won:           Number(body.cases_won)           || 0,
-        bar_admissions:      Number(body.bar_admissions)      || 1,
+        bar_admissions:      Number(body.bar_admissions)      || 0,
         firm_tier:           Number(body.firm_tier)           || 3,
         specialization_tier: Number(body.specialization_tier) || 2,
       });
