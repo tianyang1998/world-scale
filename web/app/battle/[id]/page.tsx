@@ -296,6 +296,7 @@ export default function BattlePage() {
 
     // Draw a player
     function drawPlayer(pos: ArenaPlayer, fighter: Fighter | null, isMe: boolean) {
+      if (!ctx) return
       const label = fighter?.name?.slice(0, 10) ?? '?'
       const icon  = REALM_ICONS[fighter?.realm ?? ''] ?? '🌐'
       const color = isMe ? '#9b72cf' : '#cf7272'
