@@ -172,6 +172,8 @@ export default function PvEPage() {
   // Arena positions: keyed by userId. Boss has its own ref.
   const positionsRef = useRef<Map<string, ArenaPos>>(new Map())
   const bossPosRef   = useRef({ x: 750, y: 250 })
+  const battleStartTimeRef = useRef<number>(0) // for grace period
+  const GRACE_PERIOD_MS = 3000
 
   useEffect(() => { teamRef.current = team }, [team])
   useEffect(() => { phaseRef.current = phase }, [phase])
@@ -235,6 +237,9 @@ export default function PvEPage() {
   const runBossAI = useCallback(() => {
     if (!boss || phaseRef.current !== 'fighting') return
     if (!isLeaderRef.current) return
+
+    // Grace period — boss doesn't move or attack for first 3 seconds
+    if (Date.now() - battleStartTimeRef.current < GRACE_PERIOD_MS) return
 
     const bossState = bossStateRef.current
     const now2 = Date.now()
@@ -523,6 +528,17 @@ export default function PvEPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Grace period countdown log
+  useEffect(() => {
+    if (phase !== 'fighting') return
+    const timers = [
+      setTimeout(() => addLog('⚠️ Boss moves in 2 seconds...'), 1000),
+      setTimeout(() => addLog('⚠️ Boss moves in 1 second...'), 2000),
+      setTimeout(() => addLog(`${boss?.icon ?? '👹'} The boss charges!`), 3000),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [phase, boss])
+
   // ── Boss AI interval ref (started when battle begins) ─────────────────────
   const bossAIIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const runBossAIRef = useRef(runBossAI)
@@ -537,13 +553,15 @@ export default function PvEPage() {
 
   function startBattle() {
     if (!isLeaderRef.current) return
-    // Reset boss timers so first attack fires immediately
-    bossStateRef.current.lastAttackAt = 0
-    bossStateRef.current.lastSkillAt  = 0
-    channelRef.current?.send({ type: 'broadcast', event: 'start', payload: {} })
+    // Reset boss timers — grace period before first attack
+    bossStateRef.current.lastAttackAt = Date.now() + 3000 // first attack after 3s
+    bossStateRef.current.lastSkillAt  = Date.now() + 6000 // first skill after 6s
+    battleStartTimeRef.current = Date.now()
+    channelRef.current?.send({ type: 'broadcast', event: 'start', payload: { startTime: Date.now() } })
     setPhase('fighting')
     phaseRef.current = 'fighting'
-    addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens! Fight together!`)
+    addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens!`)
+    addLog(`⏳ 3 seconds before the boss attacks — get ready!`)
     animFrameRef.current = requestAnimationFrame(draw)
     startBossAI()
   }
@@ -641,12 +659,13 @@ export default function PvEPage() {
       })
 
       // Leader starts the battle
-      channel.on('broadcast', { event: 'start' }, () => {
+      channel.on('broadcast', { event: 'start' }, ({ payload }: { payload: { startTime: number } }) => {
         setPhase('fighting')
         phaseRef.current = 'fighting'
-        addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens! Fight together!`)
+        battleStartTimeRef.current = payload.startTime
+        addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens!`)
+        addLog(`⏳ 3 seconds before the boss attacks — get ready!`)
         animFrameRef.current = requestAnimationFrame(draw)
-        // Leader starts AI via startBattle(), non-leaders just update phase
         if (isLeaderRef.current) startBossAI()
       })
 
