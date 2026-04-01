@@ -1,6 +1,6 @@
 // app/api/pve/end/route.ts
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient as createClient } from '@/lib/supabase-server'
 import { BOSSES } from '@/lib/boss'
 
 export async function POST(req: Request) {
