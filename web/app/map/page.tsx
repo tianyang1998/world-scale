@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { getTierStyle, TIERS } from '@/lib/types'
 import { isSameTier } from '@/lib/battle'
+import { BOSSES } from '@/lib/boss'
 
 interface MapPlayer {
   userId: string
@@ -42,6 +43,9 @@ const TIER_ZONES: Record<string, { x: number; width: number; color: string }> = 
   Legend:      { x: 1680, width: 120, color: 'rgba(163,45,45,0.12)'   },
 }
 
+// Boss lair — occupies the right 30px of each tier zone
+const BOSS_ZONE_WIDTH = 30
+
 const MAP_WIDTH  = 1800
 const MAP_HEIGHT = 600
 const PLAYER_SPEED = 4
@@ -50,28 +54,40 @@ const REALM_ICONS: Record<string, string> = {
   academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
 }
 
+// Check if a world-space X position is inside a tier's boss zone
+function getBossZoneTier(x: number): string | null {
+  for (const [tier, zone] of Object.entries(TIER_ZONES)) {
+    const bossZoneX = zone.x + zone.width - BOSS_ZONE_WIDTH
+    if (x >= bossZoneX && x <= zone.x + zone.width) return tier
+  }
+  return null
+}
+
 export default function MapPage() {
   const router = useRouter()
-  const canvasRef    = useRef<HTMLCanvasElement>(null)
-  const channelRef   = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-  const keysRef      = useRef<Set<string>>(new Set())
-  const myPlayerRef  = useRef<MapPlayer | null>(null)
-  const playersRef   = useRef<Map<string, MapPlayer>>(new Map())
-  const animFrameRef = useRef<number>(0)
+  const canvasRef     = useRef<HTMLCanvasElement>(null)
+  const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const keysRef       = useRef<Set<string>>(new Set())
+  const myPlayerRef   = useRef<MapPlayer | null>(null)
+  const playersRef    = useRef<Map<string, MapPlayer>>(new Map())
+  const animFrameRef  = useRef<number>(0)
   const lastBroadcast = useRef<number>(0)
 
-  // ── Stable Supabase client — never recreated on re-render ─────────────────
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
-  const [userId,    setUserId]    = useState<string | null>(null)
-  const [myTier,    setMyTier]    = useState<string>('')
-  const [challenge, setChallenge] = useState<ChallengeRequest | null>(null)
+  const [userId,         setUserId]         = useState<string | null>(null)
+  const [myTier,         setMyTier]         = useState<string>('')
+  const [myRealm,        setMyRealm]        = useState<string>('academia')
+  const [myStats,        setMyStats]        = useState<{ hp: number; attack: number; defence: number } | null>(null)
+  const [challenge,      setChallenge]      = useState<ChallengeRequest | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<MapPlayer | null>(null)
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState<string | null>(null)
+  const [bossPrompt,     setBossPrompt]     = useState<string | null>(null) // tier name of boss zone entered
+  const [enteringBoss,   setEnteringBoss]   = useState(false)
+  const [loading,        setLoading]        = useState(true)
+  const [error,          setError]          = useState<string | null>(null)
 
-  // ── Canvas draw loop ───────────────────────────────────────────────────────
+  // ── Canvas draw loop ────────────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -82,7 +98,6 @@ export default function MapPage() {
     const cw = canvas.width
     const ch = canvas.height
 
-    // Camera follows player
     const camX = me ? Math.max(0, Math.min(me.x - cw / 2, MAP_WIDTH - cw)) : 0
 
     ctx.clearRect(0, 0, cw, ch)
@@ -97,6 +112,8 @@ export default function MapPage() {
       if (!zone) return
       const screenX = zone.x - camX
       if (screenX + zone.width < 0 || screenX > cw) return
+
+      // Main zone
       ctx.fillStyle = zone.color
       ctx.fillRect(screenX, 0, zone.width, ch)
 
@@ -105,6 +122,28 @@ export default function MapPage() {
       ctx.font = '500 11px "Cinzel", serif'
       ctx.textAlign = 'center'
       ctx.fillText(t.name, screenX + zone.width / 2, 20)
+
+      // Boss lair — dark red strip on right edge of zone
+      const bossX = screenX + zone.width - BOSS_ZONE_WIDTH
+      ctx.fillStyle = 'rgba(163,45,45,0.18)'
+      ctx.fillRect(bossX, 0, BOSS_ZONE_WIDTH, ch)
+
+      // Skull icon centered in boss zone
+      ctx.font = '16px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('💀', bossX + BOSS_ZONE_WIDTH / 2, ch / 2)
+
+      // "LAIR" label
+      ctx.save()
+      ctx.translate(bossX + BOSS_ZONE_WIDTH / 2, ch / 2 + 22)
+      ctx.rotate(-Math.PI / 2)
+      ctx.font = '500 7px system-ui'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(240,149,149,0.4)'
+      ctx.fillText('LAIR', 0, 0)
+      ctx.restore()
     })
 
     // Vertical dividers
@@ -120,17 +159,16 @@ export default function MapPage() {
       ctx.stroke()
     })
 
-    // All players
+    // Players
     playersRef.current.forEach(player => {
       const sx = player.x - camX
       const sy = player.y
       if (sx < -40 || sx > cw + 40) return
 
-      const isMe = player.userId === myPlayerRef.current?.userId
-      const ts   = getTierStyle(player.totalPower)
+      const isMe    = player.userId === myPlayerRef.current?.userId
+      const ts      = getTierStyle(player.totalPower)
       const sameTier = myPlayerRef.current ? isSameTier(player.tier, myPlayerRef.current.tier) : false
 
-      // Player circle
       ctx.beginPath()
       ctx.arc(sx, sy, 18, 0, Math.PI * 2)
       ctx.fillStyle = isMe ? ts.color : sameTier ? ts.bg : 'rgba(60,52,89,0.8)'
@@ -139,20 +177,17 @@ export default function MapPage() {
       ctx.lineWidth = isMe ? 3 : 1.5
       ctx.stroke()
 
-      // Realm icon inside circle
       ctx.font = '14px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(REALM_ICONS[player.realm] ?? '🌐', sx, sy)
 
-      // Name label
       ctx.font = '500 10px system-ui'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'alphabetic'
       ctx.fillStyle = isMe ? '#e8e0f0' : 'rgba(200,168,240,0.7)'
       ctx.fillText(player.name.slice(0, 12), sx, sy + 32)
 
-      // "FIGHT" badge for same-tier others
       if (!isMe && sameTier) {
         ctx.fillStyle = 'rgba(163,45,45,0.8)'
         ctx.beginPath()
@@ -169,7 +204,7 @@ export default function MapPage() {
     animFrameRef.current = requestAnimationFrame(draw)
   }, [])
 
-  // ── Movement loop ──────────────────────────────────────────────────────────
+  // ── Movement loop ───────────────────────────────────────────────────────────
   useEffect(() => {
     const moveInterval = setInterval(() => {
       const me = myPlayerRef.current
@@ -185,7 +220,15 @@ export default function MapPage() {
 
       if (moved) {
         playersRef.current.set(me.userId, { ...me })
-        // Broadcast position every 100ms max
+
+        // Check if player stepped into a boss zone
+        const bossZoneTier = getBossZoneTier(me.x)
+        if (bossZoneTier && bossZoneTier === myPlayerRef.current?.tier) {
+          setBossPrompt(prev => prev ?? bossZoneTier) // only set if not already showing
+        } else {
+          setBossPrompt(null)
+        }
+
         const now = Date.now()
         if (now - lastBroadcast.current > 100) {
           lastBroadcast.current = now
@@ -196,28 +239,27 @@ export default function MapPage() {
           })
         }
       }
-    }, 16) // ~60fps
+    }, 16)
 
     return () => clearInterval(moveInterval)
   }, [])
 
-  // ── Canvas click → challenge ───────────────────────────────────────────────
+  // ── Canvas click → challenge ────────────────────────────────────────────────
   function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
     const me     = myPlayerRef.current
     if (!canvas || !me) return
 
-    const rect  = canvas.getBoundingClientRect()
+    const rect   = canvas.getBoundingClientRect()
     const clickX = e.clientX - rect.left
     const clickY = e.clientY - rect.top
-    const camX  = Math.max(0, Math.min(me.x - canvas.width / 2, MAP_WIDTH - canvas.width))
+    const camX   = Math.max(0, Math.min(me.x - canvas.width / 2, MAP_WIDTH - canvas.width))
 
-    // Check if click hits a player circle
     let hit: MapPlayer | null = null
     playersRef.current.forEach(player => {
       if (player.userId === myPlayerRef.current?.userId) return
-      const sx = player.x - camX
-      const sy = player.y
+      const sx   = player.x - camX
+      const sy   = player.y
       const dist = Math.sqrt((clickX - sx) ** 2 + (clickY - sy) ** 2)
       if (dist < 22) hit = player
     })
@@ -225,7 +267,7 @@ export default function MapPage() {
     if (hit) setSelectedPlayer(hit)
   }
 
-  // ── Challenge flow ─────────────────────────────────────────────────────────
+  // ── PvP challenge flow ──────────────────────────────────────────────────────
   async function sendChallenge(target: MapPlayer) {
     setSelectedPlayer(null)
     if (!isSameTier(myTier, target.tier)) {
@@ -241,23 +283,44 @@ export default function MapPage() {
     const data = await res.json()
     if (!res.ok) { setError(data.error); return }
 
-    // Notify opponent via channel
     channelRef.current?.send({
       type: 'broadcast',
       event: 'challenge',
       payload: {
-        toId:      target.userId,
-        fromId:    myPlayerRef.current?.userId,
-        fromName:  myPlayerRef.current?.name ?? 'Unknown',
-        battleId:  data.battle_id,
+        toId:     target.userId,
+        fromId:   myPlayerRef.current?.userId,
+        fromName: myPlayerRef.current?.name ?? 'Unknown',
+        battleId: data.battle_id,
       },
     })
 
-    // Go to prep screen
     router.push(`/battle/prep?battle_id=${data.battle_id}&opponent_name=${encodeURIComponent(target.name)}&opponent_power=${target.totalPower}`)
   }
 
-  // ── Init ───────────────────────────────────────────────────────────────────
+  // ── PvE enter boss lair ─────────────────────────────────────────────────────
+  async function enterBossLair() {
+    if (!bossPrompt || !myStats) return
+    setEnteringBoss(true)
+
+    const res  = await fetch('/api/pve/create', { method: 'POST' })
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error ?? 'Failed to enter boss lair')
+      setEnteringBoss(false)
+      return
+    }
+
+    const { hp, attack, defence } = myStats
+    router.push(
+      `/pve/${data.battle_id}` +
+      `?boss_tier=${encodeURIComponent(data.boss_tier)}` +
+      `&hp=${hp}&attack=${attack}&defence=${defence}` +
+      `&realm=${encodeURIComponent(myRealm)}`
+    )
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -272,12 +335,17 @@ export default function MapPage() {
       const tier = getTierStyle(char.total_power).name
       setMyTier(tier)
 
-      // Spawn position — in the middle of my tier zone
-      const zone  = TIER_ZONES[tier] ?? { x: 0, width: 120 }
+      const primaryRealm = Object.keys(char.realms ?? {})[0] ?? 'academia'
+      setMyRealm(primaryRealm)
+      setMyStats({
+        hp:      char.stats_hp      ?? 100,
+        attack:  char.stats_attack  ?? 50,
+        defence: char.stats_defence ?? 50,
+      })
+
+      const zone   = TIER_ZONES[tier] ?? { x: 0, width: 120 }
       const spawnX = zone.x + zone.width / 2
       const spawnY = MAP_HEIGHT / 2 + (Math.random() - 0.5) * 200
-
-      const primaryRealm = Object.keys(char.realms ?? {})[0] ?? 'academia'
 
       const myPlayer: MapPlayer = {
         userId:     user.id,
@@ -294,13 +362,11 @@ export default function MapPage() {
       playersRef.current.set(user.id, myPlayer)
       setLoading(false)
 
-      // Subscribe to map channel
       const channel = supabase.channel('map:global', {
         config: { presence: { key: user.id } }
       })
       channelRef.current = channel
 
-      // Other players joining
       channel.on('presence', { event: 'join' }, ({ key, newPresences }: { key: string, newPresences: MapPlayer[] }) => {
         if (key !== user.id) {
           const p = newPresences[0] as MapPlayer
@@ -308,20 +374,15 @@ export default function MapPage() {
         }
       })
 
-      // Other players leaving
       channel.on('presence', { event: 'leave' }, ({ key }: { key: string }) => {
         playersRef.current.delete(key)
       })
 
-      // Position updates
       channel.on('broadcast', { event: 'move' }, ({ payload }: { payload: { userId: string, x: number, y: number } }) => {
         const existing = playersRef.current.get(payload.userId)
-        if (existing) {
-          playersRef.current.set(payload.userId, { ...existing, x: payload.x, y: payload.y })
-        }
+        if (existing) playersRef.current.set(payload.userId, { ...existing, x: payload.x, y: payload.y })
       })
 
-      // Incoming challenge
       channel.on('broadcast', { event: 'challenge' }, ({ payload }: { payload: { toId: string, fromId: string, fromName: string, battleId: string } }) => {
         if (payload.toId === user.id) {
           setChallenge({ fromId: payload.fromId, fromName: payload.fromName, battleId: payload.battleId })
@@ -329,16 +390,12 @@ export default function MapPage() {
       })
 
       channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track(myPlayer)
-        }
+        if (status === 'SUBSCRIBED') await channel.track(myPlayer)
       })
 
-      // Start draw loop
       animFrameRef.current = requestAnimationFrame(draw)
     }
 
-    // Key listeners
     const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
     const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
     window.addEventListener('keydown', onKeyDown)
@@ -357,10 +414,16 @@ export default function MapPage() {
     }
   }, [draw])
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
+  const bossForPrompt = bossPrompt ? BOSSES[bossPrompt] : null
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '"Cinzel", serif', color: '#e8e0f0' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital@0;1&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital@0;1&display=swap');
+        @keyframes flicker { 0%,100%{opacity:1} 45%{opacity:0.85} 50%{opacity:0.7} 55%{opacity:0.9} }
+        .flicker { animation: flicker 3s ease-in-out infinite; }
+      `}</style>
 
       {/* Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.5rem', borderBottom: '1px solid rgba(155,114,207,0.1)' }}>
@@ -392,7 +455,7 @@ export default function MapPage() {
 
           {/* Controls hint */}
           <div style={{ position: 'absolute', bottom: '12px', left: '12px', fontFamily: '"Crimson Text", serif', color: 'rgba(155,114,207,0.5)', fontSize: '0.8rem' }}>
-            Move: WASD or Arrow keys · Click a player to challenge
+            Move: WASD or Arrow keys · Click a player to challenge · Walk into 💀 to fight the boss
           </div>
 
           {/* My tier badge */}
@@ -400,6 +463,40 @@ export default function MapPage() {
             <div style={{ padding: '0.3rem 0.8rem', background: 'rgba(10,10,15,0.8)', border: '1px solid rgba(155,114,207,0.3)', borderRadius: '999px', fontSize: '0.65rem', letterSpacing: '0.15em', color: '#9b72cf' }}>
               {myTier}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Boss lair prompt */}
+      {bossPrompt && bossForPrompt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: '#0f0f1a', border: '1px solid rgba(163,45,45,0.4)', borderRadius: '16px', padding: '2rem', width: '340px', textAlign: 'center' }}>
+            <div className="flicker" style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{bossForPrompt.icon}</div>
+            <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem', color: '#f09595', letterSpacing: '0.08em' }}>
+              {bossForPrompt.name}
+            </h2>
+            <div style={{ fontFamily: '"Crimson Text", serif', color: '#4a3860', fontSize: '0.75rem', marginBottom: '0.5rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              {bossForPrompt.tier} Lair · 💰 {bossForPrompt.goldReward} gold reward
+            </div>
+            <p style={{ fontFamily: '"Crimson Text", serif', color: '#8878a0', fontSize: '0.9rem', margin: '0 0 1.5rem', fontStyle: 'italic', lineHeight: 1.5 }}>
+              {bossForPrompt.lore}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={enterBossLair}
+                disabled={enteringBoss}
+                style={{ flex: 1, padding: '0.75rem', background: enteringBoss ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, rgba(163,45,45,0.5), rgba(99,57,134,0.5))', border: '1px solid rgba(163,45,45,0.5)', borderRadius: '8px', color: '#e8e0f0', fontFamily: '"Cinzel", serif', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: enteringBoss ? 'not-allowed' : 'pointer' }}>
+                {enteringBoss ? 'Entering...' : '⚔️ Enter Lair'}
+              </button>
+              <button
+                onClick={() => setBossPrompt(null)}
+                style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(155,114,207,0.2)', borderRadius: '8px', color: '#6b5c80', fontFamily: '"Cinzel", serif', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Retreat
+              </button>
+            </div>
+            <p style={{ fontFamily: '"Crimson Text", serif', color: '#3a2e50', fontSize: '0.75rem', margin: '1rem 0 0', fontStyle: 'italic' }}>
+              Up to 3 players of the same tier can join you.
+            </p>
           </div>
         </div>
       )}
@@ -424,7 +521,6 @@ export default function MapPage() {
             <div style={{ fontFamily: '"Crimson Text", serif', color: '#BA7517', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
               💰 {selectedPlayer.gold?.toLocaleString() ?? 0} gold
             </div>
-
             {isSameTier(myTier, selectedPlayer.tier) ? (
               <button onClick={() => sendChallenge(selectedPlayer)} style={{ width: '100%', padding: '0.75rem', background: 'linear-gradient(135deg, rgba(163,45,45,0.4), rgba(99,57,134,0.4))', border: '1px solid rgba(163,45,45,0.5)', borderRadius: '8px', color: '#e8e0f0', fontFamily: '"Cinzel", serif', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: '0.5rem' }}>
                 ⚔️ Challenge to Battle
@@ -441,7 +537,7 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Incoming challenge modal */}
+      {/* Incoming PvP challenge modal */}
       {challenge && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
           <div style={{ background: '#0f0f1a', border: '1px solid rgba(163,45,45,0.4)', borderRadius: '16px', padding: '2rem', width: '320px', textAlign: 'center' }}>
