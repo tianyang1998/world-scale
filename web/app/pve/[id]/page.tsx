@@ -25,6 +25,7 @@ interface TeamFighter {
   isDead: boolean
   defenceDebuffMultiplier: number
   attackDebuffMultiplier: number
+  realmSkillLastUsed: number
   gold: number
   x: number
   y: number
@@ -486,6 +487,7 @@ export default function PvEPage() {
         isBracing: false, isStunned: false, isDead: false,
         defenceDebuffMultiplier: 1.0,
         attackDebuffMultiplier: 1.0,
+        realmSkillLastUsed: 0,
         gold,
         x: SPAWN_POSITIONS[0].x,
         y: SPAWN_POSITIONS[0].y,
@@ -525,6 +527,7 @@ export default function PvEPage() {
             attack: p.attack, defence: p.defence,
             isBracing: false, isStunned: false, isDead: false,
             defenceDebuffMultiplier: 1.0, attackDebuffMultiplier: 1.0,
+            realmSkillLastUsed: 0,
             gold: p.gold, x: SPAWN_POSITIONS[spawnIdx].x, y: SPAWN_POSITIONS[spawnIdx].y,
           }
           positionsRef.current.set(key, { ...SPAWN_POSITIONS[spawnIdx] })
