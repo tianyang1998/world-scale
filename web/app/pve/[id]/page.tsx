@@ -453,18 +453,25 @@ export default function PvEPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // ── Boss AI interval (leader only) ─────────────────────────────────────────
-  useEffect(() => {
-    if (!boss) return
-    const interval = setInterval(() => {
-      if (phaseRef.current === 'fighting' && isLeaderRef.current) {
-        runBossAI()
-      }
-    }, 200) // check every 200ms, boss acts on its own timers
-    return () => clearInterval(interval)
-  }, [boss, runBossAI])
+  // ── Boss AI interval ref (started when battle begins) ─────────────────────
+  const bossAIIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── Init + channel ──────────────────────────────────────────────────────────
+  function startBossAI() {
+    if (bossAIIntervalRef.current) return // already running
+    bossAIIntervalRef.current = setInterval(() => {
+      runBossAI()
+    }, 200)
+  }
+
+  function startBattle() {
+    if (!isLeaderRef.current) return
+    channelRef.current?.send({ type: 'broadcast', event: 'start', payload: {} })
+    setPhase('fighting')
+    phaseRef.current = 'fighting'
+    addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens! Fight together!`)
+    animFrameRef.current = requestAnimationFrame(draw)
+    startBossAI()
+  }
   useEffect(() => {
     const supabase = supabaseRef.current
 
@@ -564,6 +571,8 @@ export default function PvEPage() {
         phaseRef.current = 'fighting'
         addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens! Fight together!`)
         animFrameRef.current = requestAnimationFrame(draw)
+        // Leader starts AI via startBattle(), non-leaders just update phase
+        if (isLeaderRef.current) startBossAI()
       })
 
       // Boss normal attack
@@ -722,6 +731,7 @@ export default function PvEPage() {
 
     return () => {
       cancelAnimationFrame(animFrameRef.current)
+      if (bossAIIntervalRef.current) { clearInterval(bossAIIntervalRef.current); bossAIIntervalRef.current = null }
       const supabase = supabaseRef.current
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
       window.removeEventListener('keydown',     onKeyDown)

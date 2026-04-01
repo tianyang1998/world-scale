@@ -84,6 +84,7 @@ export default function MapPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<MapPlayer | null>(null)
   const [bossPrompt,     setBossPrompt]     = useState<string | null>(null) // tier name of boss zone entered
   const [enteringBoss,   setEnteringBoss]   = useState(false)
+  const [pveInvite,      setPveInvite]      = useState<{ fromName: string; battleId: string; bossName: string; bossTier: string } | null>(null)
   const [loading,        setLoading]        = useState(true)
   const [error,          setError]          = useState<string | null>(null)
 
@@ -311,10 +312,37 @@ export default function MapPage() {
       return
     }
 
+    // Broadcast invite to same-tier players on the map
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'pve_invite',
+      payload: {
+        fromId:    myPlayerRef.current?.userId,
+        fromName:  myPlayerRef.current?.name ?? 'Unknown',
+        fromTier:  myTier,
+        battleId:  data.battle_id,
+        bossName:  data.boss_name,
+        bossTier:  data.boss_tier,
+      },
+    })
+
     const { hp, attack, defence } = myStats
     router.push(
       `/pve/${data.battle_id}` +
       `?boss_tier=${encodeURIComponent(data.boss_tier)}` +
+      `&hp=${hp}&attack=${attack}&defence=${defence}` +
+      `&realm=${encodeURIComponent(myRealm)}`
+    )
+  }
+
+  // Join an existing PvE session from an invite
+  function joinBossLair(invite: { battleId: string; bossTier: string }) {
+    if (!myStats) return
+    setPveInvite(null)
+    const { hp, attack, defence } = myStats
+    router.push(
+      `/pve/${invite.battleId}` +
+      `?boss_tier=${encodeURIComponent(invite.bossTier)}` +
       `&hp=${hp}&attack=${attack}&defence=${defence}` +
       `&realm=${encodeURIComponent(myRealm)}`
     )
@@ -387,6 +415,13 @@ export default function MapPage() {
         if (payload.toId === user.id) {
           setChallenge({ fromId: payload.fromId, fromName: payload.fromName, battleId: payload.battleId })
         }
+      })
+
+      // PvE invite — show to same-tier players only
+      channel.on('broadcast', { event: 'pve_invite' }, ({ payload }: { payload: { fromId: string, fromName: string, fromTier: string, battleId: string, bossName: string, bossTier: string } }) => {
+        if (payload.fromId === user.id) return // ignore own broadcast
+        if (payload.fromTier !== myPlayerRef.current?.tier) return // different tier
+        setPveInvite({ fromName: payload.fromName, battleId: payload.battleId, bossName: payload.bossName, bossTier: payload.bossTier })
       })
 
       channel.subscribe(async (status) => {
@@ -533,6 +568,34 @@ export default function MapPage() {
             <button onClick={() => setSelectedPlayer(null)} style={{ width: '100%', padding: '0.5rem', background: 'transparent', border: 'none', color: '#4a3860', fontFamily: '"Crimson Text", serif', fontSize: '0.9rem', cursor: 'pointer' }}>
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* PvE invite modal */}
+      {pveInvite && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}>
+          <div style={{ background: '#0f0f1a', border: '1px solid rgba(163,45,45,0.4)', borderRadius: '16px', padding: '2rem', width: '320px', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>💀</div>
+            <h2 style={{ margin: '0 0 0.25rem', fontSize: '1rem', color: '#f09595' }}>Boss Raid Invite!</h2>
+            <p style={{ fontFamily: '"Crimson Text", serif', color: '#8878a0', fontSize: '0.95rem', margin: '0 0 0.25rem' }}>
+              <strong style={{ color: '#c8a8f0' }}>{pveInvite.fromName}</strong> is fighting
+            </p>
+            <p style={{ fontFamily: '"Crimson Text", serif', color: '#f09595', fontSize: '0.9rem', margin: '0 0 1.5rem', fontStyle: 'italic' }}>
+              {pveInvite.bossName}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => joinBossLair(pveInvite)}
+                style={{ flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg, rgba(163,45,45,0.4), rgba(99,57,134,0.4))', border: '1px solid rgba(163,45,45,0.5)', borderRadius: '8px', color: '#e8e0f0', fontFamily: '"Cinzel", serif', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                ⚔️ Join Raid
+              </button>
+              <button
+                onClick={() => setPveInvite(null)}
+                style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: '1px solid rgba(155,114,207,0.2)', borderRadius: '8px', color: '#6b5c80', fontFamily: '"Cinzel", serif', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                Decline
+              </button>
+            </div>
           </div>
         </div>
       )}
