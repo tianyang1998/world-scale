@@ -35,18 +35,15 @@ interface ArenaPos { x: number; y: number; facing: number }
 
 type BattlePhase = 'lobby' | 'fighting' | 'ended'
 
-// ── Arena layout (wider to fit boss on the right) ───────────────────────────
+// ── Arena layout ────────────────────────────────────────────────────────────
 const ARENA_W = 900
 const ARENA_H = 500
 const PLAYER_RADIUS = 16
 const BOSS_RADIUS = 36
 const MELEE_RANGE = 80
 const PLAYER_SPEED = 3
+const BOSS_SPEED = 1.4  // boss moves slower than players so they can kite
 const RECONNECT_WINDOW = 5000
-
-// Boss spawns on the right, players on the left
-const BOSS_X = 750
-const BOSS_Y = 250
 
 // Pillars
 const PILLARS = [
@@ -172,8 +169,9 @@ export default function PvEPage() {
   const isLeaderRef    = useRef(false)
   const endedRef       = useRef(false)
 
-  // Arena positions: keyed by userId, boss is fixed
+  // Arena positions: keyed by userId. Boss has its own ref.
   const positionsRef = useRef<Map<string, ArenaPos>>(new Map())
+  const bossPosRef   = useRef({ x: 750, y: 250 })
 
   useEffect(() => { teamRef.current = team }, [team])
   useEffect(() => { phaseRef.current = phase }, [phase])
@@ -253,6 +251,55 @@ export default function PvEPage() {
 
     const allDead = snapshots.every(p => p.isDead)
     if (allDead) { endBattle(false); return }
+
+    // ── Boss movement — chase nearest alive player ──────────────────────────
+    const alive = currentTeam.filter(p => !p.isDead)
+    if (alive.length > 0) {
+      // Find nearest player by position
+      let nearest = alive[0]
+      let nearestDist = Infinity
+      alive.forEach(p => {
+        const pos = positionsRef.current.get(p.userId)
+        if (!pos) return
+        const d = distXY(bossPosRef.current.x, bossPosRef.current.y, pos.x, pos.y)
+        if (d < nearestDist) { nearestDist = d; nearest = p }
+      })
+
+      const targetPos = positionsRef.current.get(nearest.userId)
+      if (targetPos) {
+        const dx = targetPos.x - bossPosRef.current.x
+        const dy = targetPos.y - bossPosRef.current.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        // Only move if not already touching the player
+        if (dist > BOSS_RADIUS + PLAYER_RADIUS) {
+          const nx = dx / dist
+          const ny = dy / dist
+          const newPos = applyCollisions(
+            bossPosRef.current.x + nx * BOSS_SPEED,
+            bossPosRef.current.y + ny * BOSS_SPEED,
+            BOSS_RADIUS
+          )
+          bossPosRef.current = newPos
+
+          // Broadcast boss position to all players every ~100ms
+          if (now2 - (bossState as BossState & { lastMoveBroadcast?: number }).lastMoveBroadcast! > 80) {
+            ;(bossState as BossState & { lastMoveBroadcast?: number }).lastMoveBroadcast = now2
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'boss_move',
+              payload: { x: bossPosRef.current.x, y: bossPosRef.current.y },
+            })
+          }
+        }
+
+        // Update inRange for local player
+        const myPos = userIdRef.current ? positionsRef.current.get(userIdRef.current) : null
+        if (myPos) {
+          const d = distXY(myPos.x, myPos.y, bossPosRef.current.x, bossPosRef.current.y)
+          setInRange(d < MELEE_RANGE)
+        }
+      }
+    }
 
     // Normal attack
     if (now2 - bossState.lastAttackAt >= boss.attackIntervalMs) {
@@ -352,30 +399,32 @@ export default function PvEPage() {
     const bossState = bossStateRef.current
     const bossHpPct = boss ? bossState.currentHp / boss.hp : 0
     const bossColor = bossHpPct > 0.5 ? '#cf3333' : bossHpPct > 0.25 ? '#cf7733' : '#8b0000'
+    const bx = bossPosRef.current.x
+    const by = bossPosRef.current.y
 
     // Boss glow
-    ctx.beginPath(); ctx.arc(BOSS_X, BOSS_Y, BOSS_RADIUS + 12, 0, Math.PI * 2)
+    ctx.beginPath(); ctx.arc(bx, by, BOSS_RADIUS + 12, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(163,45,45,0.12)'; ctx.fill()
 
     // Boss body
-    const bg = ctx.createRadialGradient(BOSS_X - 10, BOSS_Y - 10, 4, BOSS_X, BOSS_Y, BOSS_RADIUS)
+    const bg = ctx.createRadialGradient(bx - 10, by - 10, 4, bx, by, BOSS_RADIUS)
     bg.addColorStop(0, 'rgba(180,50,50,0.95)')
     bg.addColorStop(1, 'rgba(60,10,10,0.98)')
-    ctx.beginPath(); ctx.arc(BOSS_X, BOSS_Y, BOSS_RADIUS, 0, Math.PI * 2)
+    ctx.beginPath(); ctx.arc(bx, by, BOSS_RADIUS, 0, Math.PI * 2)
     ctx.fillStyle = bg; ctx.fill()
     ctx.strokeStyle = bossColor; ctx.lineWidth = 3; ctx.stroke()
 
     // Boss icon
     ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(boss?.icon ?? '👹', BOSS_X, BOSS_Y)
+    ctx.fillText(boss?.icon ?? '👹', bx, by)
 
     // Boss name + HP bar above
     ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = '#f09595'
-    ctx.fillText(boss?.name ?? 'Boss', BOSS_X, BOSS_Y - BOSS_RADIUS - 22)
+    ctx.fillText(boss?.name ?? 'Boss', bx, by - BOSS_RADIUS - 22)
 
     const barW = 90; const barH = 6
-    const barX = BOSS_X - barW / 2; const barY = BOSS_Y - BOSS_RADIUS - 18
+    const barX = bx - barW / 2; const barY = by - BOSS_RADIUS - 18
     ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(barX, barY, barW, barH)
     ctx.fillStyle = bossColor; ctx.fillRect(barX, barY, barW * bossHpPct, barH)
 
@@ -426,7 +475,7 @@ export default function PvEPage() {
     // Range indicator for local player
     const myPos = myId ? positionsRef.current.get(myId) : null
     if (myPos) {
-      const d = distXY(myPos.x, myPos.y, BOSS_X, BOSS_Y)
+      const d = distXY(myPos.x, myPos.y, bossPosRef.current.x, bossPosRef.current.y)
       if (d < MELEE_RANGE * 2) {
         ctx.beginPath(); ctx.arc(myPos.x, myPos.y, MELEE_RANGE, 0, Math.PI * 2)
         ctx.strokeStyle = d < MELEE_RANGE ? 'rgba(227,75,74,0.25)' : 'rgba(155,114,207,0.1)'
@@ -458,7 +507,7 @@ export default function PvEPage() {
         pos.x = raw.x; pos.y = raw.y
         pos.facing = Math.atan2(dy, dx)
 
-        const d = distXY(pos.x, pos.y, BOSS_X, BOSS_Y)
+        const d = distXY(pos.x, pos.y, bossPosRef.current.x, bossPosRef.current.y)
         setInRange(d < MELEE_RANGE)
 
         const n = Date.now()
@@ -483,7 +532,7 @@ export default function PvEPage() {
     if (bossAIIntervalRef.current) return // already running
     bossAIIntervalRef.current = setInterval(() => {
       runBossAIRef.current()
-    }, 200)
+    }, 33) // ~30fps for smooth movement
   }
 
   function startBattle() {
@@ -599,6 +648,18 @@ export default function PvEPage() {
         animFrameRef.current = requestAnimationFrame(draw)
         // Leader starts AI via startBattle(), non-leaders just update phase
         if (isLeaderRef.current) startBossAI()
+      })
+
+      // Boss position sync (non-leaders receive from leader)
+      channel.on('broadcast', { event: 'boss_move' }, ({ payload }: { payload: { x: number, y: number } }) => {
+        if (isLeaderRef.current) return // leader owns position
+        bossPosRef.current = { x: payload.x, y: payload.y }
+        // Update inRange
+        const myPos = userIdRef.current ? positionsRef.current.get(userIdRef.current) : null
+        if (myPos) {
+          const d = distXY(myPos.x, myPos.y, payload.x, payload.y)
+          setInRange(d < MELEE_RANGE)
+        }
       })
 
       // Boss normal attack
