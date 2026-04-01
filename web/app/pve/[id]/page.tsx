@@ -218,6 +218,22 @@ export default function PvEPage() {
   }, [battleId, boss])
 
   // ── Boss AI tick (runs only on leader) ─────────────────────────────────────
+  // ── Shared damage application (used by leader locally + all via broadcast) ─
+  const applyBossDamage = useCallback((targetId: string, damage: number) => {
+    setTeam(prev => {
+      const next = prev.map(f => {
+        if (f.userId !== targetId) return f
+        const newHp = Math.max(0, f.currentHp - damage)
+        const isDead = newHp <= 0
+        addLog(`${BOSSES[bossKey]?.icon ?? '👹'} Boss hit ${f.name} for ${damage}!${isDead ? ` ${f.name} has fallen!` : ''}`)
+        return { ...f, currentHp: newHp, isDead }
+      })
+      teamRef.current = next
+      if (next.every(f => f.isDead)) endBattle(false)
+      return next
+    })
+  }, [bossKey, endBattle])
+
   const runBossAI = useCallback(() => {
     if (!boss || phaseRef.current !== 'fighting') return
     if (!isLeaderRef.current) return
@@ -248,6 +264,11 @@ export default function PvEPage() {
         const reduced = target.isBracing
           ? Math.round(calcDamage(boss.attack, target.defence * target.defenceDebuffMultiplier, 1.0, true))
           : calcDamage(boss.attack, target.defence * target.defenceDebuffMultiplier, 1.0, false)
+
+        // Apply damage locally on leader (broadcast won't echo back to sender)
+        applyBossDamage(target.userId, reduced)
+
+        // Broadcast to other players
         channelRef.current?.send({
           type: 'broadcast',
           event: 'boss_attack',
@@ -274,7 +295,7 @@ export default function PvEPage() {
         })
       }
     }
-  }, [boss, endBattle])
+  }, [boss, endBattle, applyBossDamage])
 
   // ── Draw loop ───────────────────────────────────────────────────────────────
   const draw = useCallback(() => {
@@ -583,18 +604,8 @@ export default function PvEPage() {
       // Boss normal attack
       channel.on('broadcast', { event: 'boss_attack' }, ({ payload }: { payload: { targetId: string, damage: number, timestamp: number } }) => {
         if (phaseRef.current !== 'fighting') return
-        setTeam(prev => {
-          const next = prev.map(f => {
-            if (f.userId !== payload.targetId) return f
-            const newHp = Math.max(0, f.currentHp - payload.damage)
-            const isDead = newHp <= 0
-            addLog(`${boss?.icon ?? '👹'} Boss hit ${f.name} for ${payload.damage}!${isDead ? ` ${f.name} has fallen!` : ''}`)
-            return { ...f, currentHp: newHp, isDead }
-          })
-          teamRef.current = next
-          if (next.every(f => f.isDead)) endBattle(false)
-          return next
-        })
+        if (isLeaderRef.current) return // leader already applied this locally
+        applyBossDamage(payload.targetId, payload.damage)
       })
 
       // Boss special skill
