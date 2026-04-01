@@ -845,16 +845,6 @@ export default function PvEPage() {
     }
   }
 
-  // Leader start
-  function startBattle() {
-    if (!isLeaderRef.current) return
-    channelRef.current?.send({ type: 'broadcast', event: 'start', payload: {} })
-    setPhase('fighting')
-    phaseRef.current = 'fighting'
-    addLog(`${boss?.icon ?? '👹'} ${boss?.name ?? 'The Boss'} awakens! Fight together!`)
-    animFrameRef.current = requestAnimationFrame(draw)
-  }
-
   // ── Render ──────────────────────────────────────────────────────────────────
   const realmCooldownLeft = Math.max(0, (realmCooldownUntil - now) / 1000)
   const realmSkill = REALM_SKILLS[realm]
