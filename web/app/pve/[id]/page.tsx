@@ -455,16 +455,21 @@ export default function PvEPage() {
 
   // ── Boss AI interval ref (started when battle begins) ─────────────────────
   const bossAIIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const runBossAIRef = useRef(runBossAI)
+  useEffect(() => { runBossAIRef.current = runBossAI }, [runBossAI])
 
   function startBossAI() {
     if (bossAIIntervalRef.current) return // already running
     bossAIIntervalRef.current = setInterval(() => {
-      runBossAI()
+      runBossAIRef.current()
     }, 200)
   }
 
   function startBattle() {
     if (!isLeaderRef.current) return
+    // Reset boss timers so first attack fires immediately
+    bossStateRef.current.lastAttackAt = 0
+    bossStateRef.current.lastSkillAt  = 0
     channelRef.current?.send({ type: 'broadcast', event: 'start', payload: {} })
     setPhase('fighting')
     phaseRef.current = 'fighting'
