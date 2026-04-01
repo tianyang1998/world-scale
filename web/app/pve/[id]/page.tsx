@@ -306,45 +306,56 @@ export default function PvEPage() {
       }
     }
 
-    // Normal attack
+    // Normal attack — only if boss is within melee range of target
     if (now2 - bossState.lastAttackAt >= boss.attackIntervalMs) {
-      bossState.lastAttackAt = now2
       const targetIdx = pickAttackTarget(snapshots, bossState.attackTargetIndex)
       bossState.attackTargetIndex = targetIdx
       const target = currentTeam[targetIdx]
       if (target && !target.isDead) {
-        const reduced = target.isBracing
-          ? Math.round(calcDamage(boss.attack, target.defence * target.defenceDebuffMultiplier, 1.0, true))
-          : calcDamage(boss.attack, target.defence * target.defenceDebuffMultiplier, 1.0, false)
+        const targetPos = positionsRef.current.get(target.userId)
+        const inAttackRange = targetPos
+          ? distXY(bossPosRef.current.x, bossPosRef.current.y, targetPos.x, targetPos.y) < MELEE_RANGE
+          : false
 
-        // Apply damage locally on leader (broadcast won't echo back to sender)
-        applyBossDamage(target.userId, reduced)
+        if (inAttackRange) {
+          bossState.lastAttackAt = now2
+          // Damage = 10% of target's max HP, halved if bracing
+          const baseDamage = Math.round(target.maxHp * 0.10)
+          const reduced = target.isBracing ? Math.round(baseDamage * 0.7) : baseDamage
 
-        // Broadcast to other players
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'boss_attack',
-          payload: { targetId: target.userId, damage: reduced, timestamp: now2 },
-        })
+          applyBossDamage(target.userId, reduced)
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'boss_attack',
+            payload: { targetId: target.userId, damage: reduced, timestamp: now2 },
+          })
+        }
       }
     }
 
-    // Special skill
+    // Special skill — only fires if boss is near at least one player
     if (now2 - bossState.lastSkillAt >= boss.skillIntervalMs) {
-      bossState.lastSkillAt = now2
-      const bossSkill = BOSS_SKILLS[boss.realm]
-      if (bossSkill) {
-        const targetIndices = pickSkillTargets(snapshots, bossSkill.effect)
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'boss_skill',
-          payload: {
-            skillRealm: boss.realm,
-            targetIds: targetIndices.map(i => currentTeam[i]?.userId).filter(Boolean),
-            effect: bossSkill.effect,
-            timestamp: now2,
-          },
-        })
+      const anyInRange = currentTeam.some(p => {
+        if (p.isDead) return false
+        const pos = positionsRef.current.get(p.userId)
+        return pos ? distXY(bossPosRef.current.x, bossPosRef.current.y, pos.x, pos.y) < MELEE_RANGE * 1.5 : false
+      })
+      if (anyInRange) {
+        bossState.lastSkillAt = now2
+        const bossSkill = BOSS_SKILLS[boss.realm]
+        if (bossSkill) {
+          const targetIndices = pickSkillTargets(snapshots, bossSkill.effect)
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'boss_skill',
+            payload: {
+              skillRealm: boss.realm,
+              targetIds: targetIndices.map(i => currentTeam[i]?.userId).filter(Boolean),
+              effect: bossSkill.effect,
+              timestamp: now2,
+            },
+          })
+        }
       }
     }
   }, [boss, endBattle, applyBossDamage])
@@ -704,7 +715,8 @@ export default function PvEPage() {
           if (effect.type === 'aoe_damage' || effect.type === 'damage') {
             next = next.map(f => {
               if (!payload.targetIds.includes(f.userId)) return f
-              const dmg = Math.round((boss?.attack ?? 0) * (effect.multiplier ?? 1.0))
+              // 15% max HP for special skills (slightly more than normal 10%)
+              const dmg = Math.round(f.maxHp * 0.15)
               const reduced = f.isBracing ? Math.round(dmg * 0.7) : dmg
               const newHp = Math.max(0, f.currentHp - reduced)
               addLog(`  → ${f.name} took ${reduced} damage${f.isBracing ? ' (blocked some)' : ''}`)
@@ -744,10 +756,10 @@ export default function PvEPage() {
           let ticks = 0
           const dotInterval = setInterval(() => {
             ticks++
-            const dotDmg = Math.round((boss?.attack ?? 0) * (effect.multiplier ?? 0.15))
             setTeam(prev => {
               const next = prev.map(f => {
                 if (!payload.targetIds.includes(f.userId) || f.isDead) return f
+                const dotDmg = Math.round(f.maxHp * 0.04) // 4% max HP per tick
                 const newHp = Math.max(0, f.currentHp - dotDmg)
                 addLog(`☠️ ${f.name} takes ${dotDmg} DOT damage!`)
                 return { ...f, currentHp: newHp, isDead: newHp <= 0 }
