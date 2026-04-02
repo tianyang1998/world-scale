@@ -326,25 +326,20 @@ export default function MapPage() {
       },
     })
 
-    const { hp, attack, defence } = myStats
     router.push(
-      `/pve/${data.battle_id}` +
-      `?boss_tier=${encodeURIComponent(data.boss_tier)}` +
-      `&hp=${hp}&attack=${attack}&defence=${defence}` +
-      `&realm=${encodeURIComponent(myRealm)}`
+      `/pve/prep` +
+      `?battle_id=${data.battle_id}` +
+      `&boss_tier=${encodeURIComponent(data.boss_tier)}`
     )
   }
 
-  // Join an existing PvE session from an invite
+  // Join an existing PvE session from an invite — also goes through prep
   function joinBossLair(invite: { battleId: string; bossTier: string }) {
-    if (!myStats) return
     setPveInvite(null)
-    const { hp, attack, defence } = myStats
     router.push(
-      `/pve/${invite.battleId}` +
-      `?boss_tier=${encodeURIComponent(invite.bossTier)}` +
-      `&hp=${hp}&attack=${attack}&defence=${defence}` +
-      `&realm=${encodeURIComponent(myRealm)}`
+      `/pve/prep` +
+      `?battle_id=${encodeURIComponent(invite.battleId)}` +
+      `&boss_tier=${encodeURIComponent(invite.bossTier)}`
     )
   }
 
