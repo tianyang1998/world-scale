@@ -123,6 +123,8 @@ export default function BattlePage() {
     hitFlashesRef.current.push({ x:myPosRef.current.x, y:myPosRef.current.y, color:proj.color, age:0 })
     setMe(prev=>prev?{...prev,currentHp:newHp}:prev)
     addLog(`${bracingNow?'🛡️ Blocked! ':''}Hit for ${reduced}${bracingNow?` (was ${damage})`:''}`)
+    // Sync my new HP to opponent so their bar updates
+    channelRef.current?.send({ type:'broadcast', event:'hp_sync', payload:{ userId: userIdRef.current, currentHp: newHp } })
     if (newHp<=0) endBattle(attackerId, currentMe, opponentRef.current!)
   },[bracingUntil, endBattle])
 
@@ -241,6 +243,12 @@ export default function BattlePage() {
       channel.on('broadcast',{event:'move'},({payload}:{payload:{userId:string,x:number,y:number,facing:number}})=>{
         if(payload.userId!==user.id){ oppPosRef.current={x:payload.x,y:payload.y,facing:payload.facing}; const mp=myPosRef.current; const d=distXY(mp.x,mp.y,payload.x,payload.y); const los=hasLOS(mp.x,mp.y,payload.x,payload.y); setInRange(d<MELEE_RANGE&&los); setHasLOSState(los) }
       })
+      // HP sync — update opponent's HP bar when they take damage
+      channel.on('broadcast',{event:'hp_sync'},({payload}:{payload:{userId:string,currentHp:number}})=>{
+        if(payload.userId===userIdRef.current) return // ignore own
+        setOpponent(prev=>prev?{...prev,currentHp:payload.currentHp}:prev)
+      })
+
       // Incoming projectile from opponent
       channel.on('broadcast',{event:'projectile'},({payload}:{payload:{actionType:string,realm:string,fromX:number,fromY:number,toX:number,toY:number,targetId:string,damage:number,effect?:string}})=>{
         if(phaseRef.current!=='fighting') return

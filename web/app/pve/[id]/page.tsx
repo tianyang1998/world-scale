@@ -828,17 +828,19 @@ export default function PvEPage() {
         payload: { type: string, attackerId: string, damage?: number, heal?: number, healTargetId?: string, effect?: string, targetIds?: string[], timestamp: number }
       }) => {
         if (phaseRef.current !== 'fighting') return
-        const { type, attackerId, damage, heal, healTargetId, effect, targetIds } = payload
+        if (payload.attackerId === userIdRef.current) return // already applied locally
+        const { type, attackerId, damage, heal, healTargetId, effect } = payload
 
-        // Update boss HP on strike
+        // Update boss HP on strike from teammate
         if (type === 'strike' || type === 'realm_offensive') {
           const dmg = damage ?? 0
           bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - dmg)
           setBossHp(bossStateRef.current.currentHp)
+          addLog(`⚔️ ${teamRef.current.find(t => t.userId === attackerId)?.name ?? 'Ally'} hit boss for ${dmg}!`)
           if (bossStateRef.current.currentHp <= 0) endBattle(true)
         }
 
-        // Team heal
+        // Team heal from teammate
         if (type === 'realm_heal' && healTargetId) {
           setTeam(prev => {
             const next = prev.map(f => {
@@ -852,10 +854,8 @@ export default function PvEPage() {
           })
         }
 
-        // AOE defence debuff on boss
         if (effect === 'boss_defence_debuff') {
           addLog(`📖 Boss Defence reduced for the whole team!`)
-          // Apply a temporary multiplier to boss defence — broadcast handled by leader
         }
       })
 
@@ -900,6 +900,29 @@ export default function PvEPage() {
 
   // ── Skill handlers ──────────────────────────────────────────────────────────
   function firePlayerAction(type: string, payload: Record<string, unknown>) {
+    // Apply locally first (sender doesn't receive own broadcasts)
+    if (type === 'strike' || type === 'realm_offensive') {
+      const dmg = (payload.damage as number) ?? 0
+      bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - dmg)
+      setBossHp(bossStateRef.current.currentHp)
+      if (bossStateRef.current.currentHp <= 0) endBattle(true)
+    }
+    if (type === 'realm_heal') {
+      const healTargetId = payload.healTargetId as string
+      const heal = (payload.heal as number) ?? 0
+      const me = teamRef.current.find(f => f.userId === userIdRef.current)
+      setTeam(prev => {
+        const next = prev.map(f => {
+          if (f.userId !== healTargetId) return f
+          const newHp = Math.min(f.maxHp, f.currentHp + heal)
+          addLog(`⚕️ ${me?.name ?? 'You'} healed ${f.name} for ${heal} HP!`)
+          return { ...f, currentHp: newHp }
+        })
+        teamRef.current = next
+        return next
+      })
+    }
+    // Broadcast to teammates
     channelRef.current?.send({
       type: 'broadcast', event: 'player_action',
       payload: { ...payload, type, attackerId: userIdRef.current, timestamp: Date.now() },
@@ -922,11 +945,8 @@ export default function PvEPage() {
       hitFlashesRef.current.push({ x: bossPosRef.current.x, y: bossPosRef.current.y, color: proj.color, age: 0 })
     }
 
-    bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - damage)
-    setBossHp(bossStateRef.current.currentHp)
     addLog(`⚔️ ${me.name} struck the boss for ${damage}!`)
     firePlayerAction('strike', { damage })
-    if (bossStateRef.current.currentHp <= 0) endBattle(true)
   }
 
   function handleBrace() {
@@ -968,11 +988,8 @@ export default function PvEPage() {
         projectilesRef.current.push(proj)
         hitFlashesRef.current.push({ x: bx, y: by, color: proj.color, age: 0 })
       }
-      bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - damage)
-      setBossHp(bossStateRef.current.currentHp)
       addLog(`${skill.icon} ${me.name} used ${skill.name}: ${damage} damage to boss!`)
       firePlayerAction('realm_offensive', { damage })
-      if (bossStateRef.current.currentHp <= 0) { endBattle(true); return }
     }
 
     // ── Medicine: heal selected target with visual pulse ──────────────────────
@@ -989,10 +1006,6 @@ export default function PvEPage() {
           projectilesRef.current.push(proj)
           hitFlashesRef.current.push({ x: targetPos.x, y: targetPos.y, color: proj.color, age: 0 })
         }
-        addLog(`${skill.icon} ${me.name} healed ${target.name} for ${healAmount} HP!`)
-        setTeam(prev => prev.map(f => f.userId === target.userId
-          ? { ...f, currentHp: Math.min(f.maxHp, f.currentHp + healAmount) } : f
-        ))
         firePlayerAction('realm_heal', { heal: healAmount, healTargetId: target.userId })
         setSelectedHealTarget(null)
       }
