@@ -326,7 +326,10 @@ export default function BattlePage() {
     if(skill.healPercent){
       const healAmount=Math.round(m.maxHp*skill.healPercent)
       const proj=createHealPulse(mp.x,mp.y,mp.x,mp.y,m.userId,healAmount); proj.noDodge=true
-      setMe(prev=>prev?{...prev,currentHp:Math.min(prev.maxHp,prev.currentHp+healAmount)}:prev)
+      const newHp = Math.min(m.maxHp, m.currentHp + healAmount)
+      setMe(prev=>prev?{...prev,currentHp:newHp}:prev)
+      // Sync healed HP to opponent so their bar updates
+      channelRef.current?.send({ type:'broadcast', event:'hp_sync', payload:{ userId: userIdRef.current, currentHp: newHp } })
       projectilesRef.current.push(proj); fireProj('realm_heal',proj,{effect:'heal'}); addLog(`${skill.icon} Healed ${healAmount}!`)
     }
     if(skill.defenceDebuff){

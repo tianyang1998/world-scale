@@ -534,6 +534,9 @@ export default function PvEPage() {
         if (myPos2 && checkHit(proj, myPos2.x, myPos2.y)) {
           proj.hit = true
           applyBossDamage(localUserId, proj.damage, proj.color, proj.x, proj.y)
+          // Sync updated HP to teammates
+          const updatedMe = teamRef.current.find(f => f.userId === localUserId)
+          if (updatedMe) channelRef.current?.send({ type: 'broadcast', event: 'hp_sync', payload: { userId: localUserId, currentHp: updatedMe.currentHp } })
           continue
         }
       }
@@ -741,6 +744,16 @@ export default function PvEPage() {
         }
       })
 
+      // HP sync — update teammate HP bars after heal or boss damage
+      channel.on('broadcast', { event: 'hp_sync' }, ({ payload }: { payload: { userId: string, currentHp: number } }) => {
+        if (payload.userId === userIdRef.current) return // ignore own
+        setTeam(prev => {
+          const next = prev.map(f => f.userId === payload.userId ? { ...f, currentHp: payload.currentHp } : f)
+          teamRef.current = next
+          return next
+        })
+      })
+
       // Boss projectile — non-leaders spawn it locally for hit detection
       channel.on('broadcast', { event: 'boss_projectile' }, ({ payload }: { payload: { targetId: string, damage: number, fromX: number, fromY: number, toX: number, toY: number, realm: string } }) => {
         if (phaseRef.current !== 'fighting') return
@@ -916,6 +929,8 @@ export default function PvEPage() {
           if (f.userId !== healTargetId) return f
           const newHp = Math.min(f.maxHp, f.currentHp + heal)
           addLog(`⚕️ ${me?.name ?? 'You'} healed ${f.name} for ${heal} HP!`)
+          // Sync healed HP to all teammates
+          channelRef.current?.send({ type: 'broadcast', event: 'hp_sync', payload: { userId: healTargetId, currentHp: newHp } })
           return { ...f, currentHp: newHp }
         })
         teamRef.current = next
