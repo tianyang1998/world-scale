@@ -524,16 +524,16 @@ export default function PvEPage() {
     }
 
     // ── Projectile update + hit detection ────────────────────────────────────
-    const myId = userIdRef.current
+    const localUserId = userIdRef.current
     const surviving: Projectile[] = []
     for (const proj of projectilesRef.current) {
       const alive = updateProjectile(proj, dtMs)
       if (!alive) continue
-      if (proj.targetId === myId) {
-        const myPos2 = myId ? positionsRef.current.get(myId) : null
+      if (proj.targetId === localUserId) {
+        const myPos2 = localUserId ? positionsRef.current.get(localUserId) : null
         if (myPos2 && checkHit(proj, myPos2.x, myPos2.y)) {
           proj.hit = true
-          applyBossDamage(myId, proj.damage, proj.color, proj.x, proj.y)
+          applyBossDamage(localUserId, proj.damage, proj.color, proj.x, proj.y)
           continue
         }
       }
