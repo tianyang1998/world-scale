@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase-client'
 import { calcDamage, REALM_SKILLS, calcGoldTransfer } from '@/lib/battle'
 import { getTierStyle } from '@/lib/types'
 import {
+  Projectile, drawProjectile, drawHitFlash,
+  updateProjectile, checkHit,
+  createSword, createRealmProjectile, createHealPulse, createBossProjectile,
+} from '@/lib/projectiles'
   BOSSES, BOSS_SKILLS, Boss, BossState,
   pickAttackTarget, pickSkillTargets, PlayerSnapshot,
 } from '@/lib/boss'
@@ -32,6 +36,7 @@ interface TeamFighter {
 }
 
 interface ArenaPos { x: number; y: number; facing: number }
+interface HitFlash { x: number; y: number; color: string; age: number }
 
 type BattlePhase = 'lobby' | 'fighting' | 'ended'
 
@@ -172,6 +177,9 @@ export default function PvEPage() {
   // Arena positions: keyed by userId. Boss has its own ref.
   const positionsRef = useRef<Map<string, ArenaPos>>(new Map())
   const bossPosRef   = useRef({ x: 750, y: 250 })
+  const projectilesRef = useRef<Projectile[]>([])
+  const hitFlashesRef  = useRef<HitFlash[]>([])
+  const lastFrameTime  = useRef(0)
   const battleStartTimeRef = useRef<number>(0) // for grace period
   const GRACE_PERIOD_MS = 3000
 
@@ -218,13 +226,32 @@ export default function PvEPage() {
   }, [battleId, boss])
 
   // ── Boss AI tick (runs only on leader) ─────────────────────────────────────
-  // ── Shared damage application (used by leader locally + all via broadcast) ─
-  const applyBossDamage = useCallback((targetId: string, damage: number) => {
+  // ── Boss fires a projectile toward target ────────────────────────────────────
+  const fireBossProjectile = useCallback((targetId: string, damage: number) => {
+    const targetPos = positionsRef.current.get(targetId)
+    if (!targetPos) return
+    const proj = createBossProjectile(
+      boss?.realm ?? 'academia',
+      bossPosRef.current.x, bossPosRef.current.y,
+      targetPos.x, targetPos.y,
+      targetId, damage
+    )
+    projectilesRef.current.push(proj)
+    // Broadcast so all clients see the projectile
+    channelRef.current?.send({
+      type: 'broadcast', event: 'boss_projectile',
+      payload: { targetId, damage, fromX: bossPosRef.current.x, fromY: bossPosRef.current.y, toX: targetPos.x, toY: targetPos.y, realm: boss?.realm ?? 'academia' },
+    })
+  }, [boss])
+
+  // ── Apply damage when a boss projectile hits a player ────────────────────────
+  const applyBossDamage = useCallback((targetId: string, damage: number, projColor: string, projX: number, projY: number) => {
     setTeam(prev => {
       const next = prev.map(f => {
         if (f.userId !== targetId) return f
         const newHp = Math.max(0, f.currentHp - damage)
         const isDead = newHp <= 0
+        hitFlashesRef.current.push({ x: projX, y: projY, color: projColor, age: 0 })
         addLog(`${BOSSES[bossKey]?.icon ?? '👹'} Boss hit ${f.name} for ${damage}!${isDead ? ` ${f.name} has fallen!` : ''}`)
         return { ...f, currentHp: newHp, isDead }
       })
@@ -319,16 +346,9 @@ export default function PvEPage() {
 
         if (inAttackRange) {
           bossState.lastAttackAt = now2
-          // Damage = 10% of target's max HP, halved if bracing
           const baseDamage = Math.round(target.maxHp * 0.10)
           const reduced = target.isBracing ? Math.round(baseDamage * 0.7) : baseDamage
-
-          applyBossDamage(target.userId, reduced)
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'boss_attack',
-            payload: { targetId: target.userId, damage: reduced, timestamp: now2 },
-          })
+          fireBossProjectile(target.userId, reduced)
         }
       }
     }
@@ -358,14 +378,17 @@ export default function PvEPage() {
         }
       }
     }
-  }, [boss, endBattle, applyBossDamage])
+  }, [boss, endBattle, applyBossDamage, fireBossProjectile])
 
   // ── Draw loop ───────────────────────────────────────────────────────────────
-  const draw = useCallback(() => {
+  const draw = useCallback((timestamp: number) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    const dtMs = lastFrameTime.current ? timestamp - lastFrameTime.current : 16
+    lastFrameTime.current = timestamp
 
     ctx.clearRect(0, 0, ARENA_W, ARENA_H)
 
@@ -499,8 +522,33 @@ export default function PvEPage() {
       }
     }
 
+    // ── Projectile update + hit detection ────────────────────────────────────
+    const myId = userIdRef.current
+    const surviving: Projectile[] = []
+    for (const proj of projectilesRef.current) {
+      const alive = updateProjectile(proj, dtMs)
+      if (!alive) continue
+      if (proj.targetId === myId) {
+        const myPos2 = myId ? positionsRef.current.get(myId) : null
+        if (myPos2 && checkHit(proj, myPos2.x, myPos2.y)) {
+          proj.hit = true
+          applyBossDamage(myId, proj.damage, proj.color, proj.x, proj.y)
+          continue
+        }
+      }
+      drawProjectile(ctx, proj)
+      surviving.push(proj)
+    }
+    projectilesRef.current = surviving
+    hitFlashesRef.current = hitFlashesRef.current.filter(h => {
+      h.age += dtMs
+      if (h.age > 300) return false
+      drawHitFlash(ctx, h.x, h.y, h.color, h.age)
+      return true
+    })
+
     animFrameRef.current = requestAnimationFrame(draw)
-  }, [boss])
+  }, [boss, applyBossDamage])
 
   // ── Movement loop ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -692,11 +740,12 @@ export default function PvEPage() {
         }
       })
 
-      // Boss normal attack
-      channel.on('broadcast', { event: 'boss_attack' }, ({ payload }: { payload: { targetId: string, damage: number, timestamp: number } }) => {
+      // Boss projectile — non-leaders spawn it locally for hit detection
+      channel.on('broadcast', { event: 'boss_projectile' }, ({ payload }: { payload: { targetId: string, damage: number, fromX: number, fromY: number, toX: number, toY: number, realm: string } }) => {
         if (phaseRef.current !== 'fighting') return
-        if (isLeaderRef.current) return // leader already applied this locally
-        applyBossDamage(payload.targetId, payload.damage)
+        if (isLeaderRef.current) return // leader already spawned it in fireBossProjectile
+        const proj = createBossProjectile(payload.realm, payload.fromX, payload.fromY, payload.toX, payload.toY, payload.targetId, payload.damage)
+        projectilesRef.current.push(proj)
       })
 
       // Boss special skill
@@ -861,14 +910,20 @@ export default function PvEPage() {
     if (!me || phaseRef.current !== 'fighting' || me.isStunned || me.isDead) return
     if (!inRange) { addLog('⚔️ Too far! Move closer to the boss.'); return }
 
+    const myPos = positionsRef.current.get(me.userId)
     const effectiveAttack = me.attack * me.attackDebuffMultiplier
     const damage = calcDamage(effectiveAttack, (boss?.defence ?? 0), 1.0, false)
 
-    // Update boss HP locally
+    // Spawn visual sword projectile
+    if (myPos) {
+      const proj = createSword(myPos.x, myPos.y, bossPosRef.current.x, bossPosRef.current.y, 'boss', damage)
+      projectilesRef.current.push(proj)
+      hitFlashesRef.current.push({ x: bossPosRef.current.x, y: bossPosRef.current.y, color: proj.color, age: 0 })
+    }
+
     bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - damage)
     setBossHp(bossStateRef.current.currentHp)
     addLog(`⚔️ ${me.name} struck the boss for ${damage}!`)
-
     firePlayerAction('strike', { damage })
     if (bossStateRef.current.currentHp <= 0) endBattle(true)
   }
@@ -892,7 +947,6 @@ export default function PvEPage() {
     const cooldownMs = skill.cooldown * 1000
     if (Date.now() - me.realmSkillLastUsed < cooldownMs) return
 
-    // Melee check for offensive skills
     const needsRange = skill.multiplier || skill.defenceDebuff || skill.attackDebuff || skill.stunChance
     if (needsRange && !inRange) { addLog(`${skill.icon} Too far! Get closer to use ${skill.name}.`); return }
 
@@ -901,10 +955,18 @@ export default function PvEPage() {
     setTeam(prev => prev.map(f => f.userId === me.userId ? { ...f, realmSkillLastUsed: now2 } : f))
 
     const effectiveAttack = me.attack * me.attackDebuffMultiplier
+    const myPos = positionsRef.current.get(me.userId)
+    const bx = bossPosRef.current.x; const by = bossPosRef.current.y
 
-    // ── Offensive damage to boss ───────────────────────────────────────────
+    // ── Offensive damage to boss ─────────────────────────────────────────────
     if (skill.multiplier) {
       const damage = calcDamage(effectiveAttack, boss?.defence ?? 0, skill.multiplier, false)
+      // Spawn realm projectile visual
+      if (myPos) {
+        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', damage)
+        projectilesRef.current.push(proj)
+        hitFlashesRef.current.push({ x: bx, y: by, color: proj.color, age: 0 })
+      }
       bossStateRef.current.currentHp = Math.max(0, bossStateRef.current.currentHp - damage)
       setBossHp(bossStateRef.current.currentHp)
       addLog(`${skill.icon} ${me.name} used ${skill.name}: ${damage} damage to boss!`)
@@ -912,7 +974,7 @@ export default function PvEPage() {
       if (bossStateRef.current.currentHp <= 0) { endBattle(true); return }
     }
 
-    // ── Medicine: heal selected target, default to self ───────────────────
+    // ── Medicine: heal selected target with visual pulse ──────────────────────
     if (skill.healPercent) {
       const alive = teamRef.current.filter(f => !f.isDead)
       const target = alive.find(f => f.userId === selectedHealTarget)
@@ -920,34 +982,42 @@ export default function PvEPage() {
         ?? alive[0]
       if (target) {
         const healAmount = Math.round(me.maxHp * skill.healPercent)
+        const targetPos = positionsRef.current.get(target.userId)
+        if (myPos && targetPos) {
+          const proj = createHealPulse(myPos.x, myPos.y, targetPos.x, targetPos.y, target.userId, healAmount)
+          projectilesRef.current.push(proj)
+          hitFlashesRef.current.push({ x: targetPos.x, y: targetPos.y, color: proj.color, age: 0 })
+        }
         addLog(`${skill.icon} ${me.name} healed ${target.name} for ${healAmount} HP!`)
         setTeam(prev => prev.map(f => f.userId === target.userId
-          ? { ...f, currentHp: Math.min(f.maxHp, f.currentHp + healAmount) }
-          : f
+          ? { ...f, currentHp: Math.min(f.maxHp, f.currentHp + healAmount) } : f
         ))
         firePlayerAction('realm_heal', { heal: healAmount, healTargetId: target.userId })
-        setSelectedHealTarget(null) // reset after use
+        setSelectedHealTarget(null)
       }
     }
 
-    // ── Academia: reduce boss defence (team-wide effect) ───────────────────
+    // ── Academia: reduce boss defence with orb visual ─────────────────────────
     if (skill.defenceDebuff) {
+      if (myPos) {
+        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', 0)
+        projectilesRef.current.push(proj)
+      }
       addLog(`${skill.icon} ${me.name} weakened the boss's defence for the whole team!`)
-      // Temporarily reduce boss defence in bossStateRef
-      const orig = boss?.defence ?? 0
-      // We approximate by reducing from the canonical value — all players
-      // will calculate damage against the debuffed value for the duration
       firePlayerAction('realm_debuff', { effect: 'boss_defence_debuff', defenceDebuff: skill.defenceDebuff, debuffDuration: (skill.debuffDuration ?? 2) * 1000 })
-      // Apply locally for the leader's AI calculations
       if (isLeaderRef.current && boss) {
-        const debuffed = Math.round(orig * (1 - skill.defenceDebuff))
+        const debuffed = Math.round((boss.defence ?? 0) * (1 - skill.defenceDebuff))
         ;(boss as Boss & { _tempDefence?: number })._tempDefence = debuffed
         setTimeout(() => { delete (boss as Boss & { _tempDefence?: number })._tempDefence }, (skill.debuffDuration ?? 2) * 1000)
       }
     }
 
-    // ── Law: reduce boss attack for all players ────────────────────────────
+    // ── Law: reduce boss attack with verdict visual ────────────────────────────
     if (skill.attackDebuff) {
+      if (myPos) {
+        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', 0)
+        projectilesRef.current.push(proj)
+      }
       addLog(`${skill.icon} ${me.name} issued a Verdict — boss attack reduced for everyone!`)
       firePlayerAction('realm_debuff', { effect: 'boss_attack_debuff', attackDebuff: skill.attackDebuff, debuffDuration: (skill.debuffDuration ?? 3) * 1000 })
     }
