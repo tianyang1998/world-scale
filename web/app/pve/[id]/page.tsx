@@ -888,11 +888,11 @@ export default function PvEPage() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key)
-      if (e.code === 'Space') { e.preventDefault(); handleBrace() }
-      if (e.code === 'KeyQ')  { e.preventDefault(); handleRealmSkill() }
+      if (e.code === 'Space') { e.preventDefault(); handleBraceRef.current() }
+      if (e.code === 'KeyQ')  { e.preventDefault(); handleRealmSkillRef.current() }
     }
     const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
-    const onContext = (e: MouseEvent)    => { e.preventDefault(); handleStrike() }
+    const onContext = (e: MouseEvent) => { e.preventDefault(); handleStrikeRef.current() }
 
     window.addEventListener('keydown',     onKeyDown)
     window.addEventListener('keyup',       onKeyUp)
@@ -1053,6 +1053,13 @@ export default function PvEPage() {
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  const handleStrikeRef = useRef(handleStrike)
+  const handleBraceRef = useRef(handleBrace)
+  const handleRealmSkillRef = useRef(handleRealmSkill)
+  handleStrikeRef.current = handleStrike
+  handleBraceRef.current = handleBrace
+  handleRealmSkillRef.current = handleRealmSkill
+
   const realmCooldownLeft = Math.max(0, (realmCooldownUntil - now) / 1000)
   const realmSkill = REALM_SKILLS[realm]
   const me = team.find(f => f.userId === userId)

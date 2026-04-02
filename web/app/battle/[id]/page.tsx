@@ -277,9 +277,9 @@ export default function BattlePage() {
       })
       channel.subscribe(async(status)=>{ if(status==='SUBSCRIBED') await channel.track({name:data.character?.name??'Unknown',hp,attack,defence,gold,realm}) })
     }
-    const onKeyDown=(e: KeyboardEvent)=>{ keysRef.current.add(e.key); if(e.code==='Space'){e.preventDefault();handleBrace()} if(e.code==='KeyQ'){e.preventDefault();handleRealmSkill()} }
+    const onKeyDown=(e: KeyboardEvent)=>{ keysRef.current.add(e.key); if(e.code==='Space'){e.preventDefault();handleBraceRef.current()} if(e.code==='KeyQ'){e.preventDefault();handleRealmSkillRef.current()} }
     const onKeyUp=(e: KeyboardEvent)=>keysRef.current.delete(e.key)
-    const onContext=(e: MouseEvent)=>{ e.preventDefault(); handleStrike() }
+    const onContext=(e: MouseEvent)=>{ e.preventDefault(); handleStrikeRef.current() }
     window.addEventListener('keydown',onKeyDown); window.addEventListener('keyup',onKeyUp); window.addEventListener('contextmenu',onContext)
     init()
     return ()=>{ cancelAnimationFrame(animFrameRef.current); if(channelRef.current){supabaseRef.current.removeChannel(channelRef.current);channelRef.current=null}; window.removeEventListener('keydown',onKeyDown); window.removeEventListener('keyup',onKeyUp); window.removeEventListener('contextmenu',onContext) }
@@ -348,7 +348,12 @@ export default function BattlePage() {
     }
   }
 
-  const realmCooldownLeft=Math.max(0,(realmCooldownUntil-now)/1000)
+  const handleStrikeRef = useRef(handleStrike)
+  const handleBraceRef = useRef(handleBrace)
+  const handleRealmSkillRef = useRef(handleRealmSkill)
+  handleStrikeRef.current = handleStrike
+  handleBraceRef.current = handleBrace
+  handleRealmSkillRef.current = handleRealmSkill
   const realmSkill=REALM_SKILLS[realm]
 
   function HpBar({fighter,flip=false}:{fighter:Fighter;flip?:boolean}) {
