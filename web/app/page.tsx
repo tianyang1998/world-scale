@@ -7,7 +7,6 @@ import { CharacterScore } from "@/lib/types";
 import { createClient } from "@/lib/supabase-client";
 
 type Realm = "academia" | "tech" | "medicine" | "creative" | "law";
-type InputMode = "scholar" | "github" | "manual";
 
 const REALM_LABELS: Record<Realm, string> = {
   academia: "📚 Academia",
@@ -19,18 +18,15 @@ const REALM_LABELS: Record<Realm, string> = {
 
 export default function Home() {
   const router = useRouter();
-  const [realm, setRealm]       = useState<Realm>("academia");
-  const [mode, setMode]         = useState<InputMode>("manual");
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
-  const [score, setScore]       = useState<CharacterScore | null>(null);
+  const [realm, setRealm]     = useState<Realm>("academia");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+  const [score, setScore]     = useState<CharacterScore | null>(null);
 
-  // auth state
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
   const [saveMsg, setSaveMsg]     = useState<string | null>(null);
 
-  // character name — shared across all realms
   const [charName, setCharName] = useState("");
 
   // academia fields
@@ -42,8 +38,7 @@ export default function Home() {
   const [recentCit, setRecentCit] = useState("");
   const [instTier,  setInstTier]  = useState("3");
 
-  // tech fields
-  const [ghUser,    setGhUser]    = useState("");
+  // tech fields — manual only
   const [repos,     setRepos]     = useState("");
   const [stars,     setStars]     = useState("");
   const [followers, setFollowers] = useState("");
@@ -51,20 +46,20 @@ export default function Home() {
   const [tYears,    setTYears]    = useState("");
 
   // medicine fields
-  const [medYears,       setMedYears]       = useState("");
-  const [medPapers,      setMedPapers]      = useState("");
-  const [medCitations,   setMedCitations]   = useState("");
-  const [medPatients,    setMedPatients]    = useState("");
-  const [medSpecTier,    setMedSpecTier]    = useState("3");
-  const [medHospTier,    setMedHospTier]    = useState("3");
-  const [medBoardCerts,  setMedBoardCerts]  = useState("");
+  const [medYears,      setMedYears]      = useState("");
+  const [medPapers,     setMedPapers]     = useState("");
+  const [medCitations,  setMedCitations]  = useState("");
+  const [medPatients,   setMedPatients]   = useState("");
+  const [medSpecTier,   setMedSpecTier]   = useState("3");
+  const [medHospTier,   setMedHospTier]   = useState("3");
+  const [medBoardCerts, setMedBoardCerts] = useState("");
 
   // creative fields
-  const [creYears,        setCreYears]        = useState("");
-  const [creMajorWorks,   setCreMajorWorks]   = useState("");
-  const [creAwards,       setCreAwards]       = useState("");
-  const [creAudience,     setCreAudience]     = useState("");
-  const [creExhibitions,  setCreExhibitions]  = useState("");
+  const [creYears,       setCreYears]       = useState("");
+  const [creMajorWorks,  setCreMajorWorks]  = useState("");
+  const [creAwards,      setCreAwards]      = useState("");
+  const [creAudience,    setCreAudience]    = useState("");
+  const [creExhibitions, setCreExhibitions] = useState("");
 
   // law fields
   const [lawYears,      setLawYears]      = useState("");
@@ -82,10 +77,7 @@ export default function Home() {
   }, []);
 
   async function handleSubmit() {
-    setError("");
-    setLoading(true);
-    setScore(null);
-    setSaveMsg(null);
+    setError(""); setLoading(true); setScore(null); setSaveMsg(null);
 
     let body: Record<string, string | number> = { realm, name: charName };
 
@@ -94,11 +86,7 @@ export default function Home() {
                years_active: years, pub_count: pubs, i10_index: i10,
                recent_citations: recentCit, institution_tier: instTier };
     } else if (realm === "tech") {
-      if (mode === "github") {
-        body = { realm, name: charName, github_username: ghUser };
-      } else {
-        body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
-      }
+      body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
     } else if (realm === "medicine") {
       body = { realm, name: charName, years_active: medYears, papers: medPapers,
                citations: medCitations, patients_treated: medPatients,
@@ -128,27 +116,16 @@ export default function Home() {
   async function handleSave() {
     if (!score) return;
     if (!userEmail) { router.push("/auth"); return; }
-
-    setSaving(true);
-    setSaveMsg(null);
-
+    setSaving(true); setSaveMsg(null);
     try {
       const res = await fetch("/api/character/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: charName,
-          realm: score.realm,
-          power: score.power,
-          stats: score.stats,
-        }),
+        body: JSON.stringify({ name: charName, realm: score.realm, power: score.power, stats: score.stats }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setSaveMsg("Failed to save. Please try again.");
-      } else {
-        setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()} · +${data.gold_earned} gold`);
-      }
+      if (!res.ok) { setSaveMsg("Failed to save. Please try again."); }
+      else { setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()} · +${data.gold_earned} gold`); }
     } catch {
       setSaveMsg("Network error — could not save.");
     }
@@ -159,12 +136,7 @@ export default function Home() {
     ? `${window.location.origin}/api/og?name=${encodeURIComponent(score.name)}&tier=${score.tier}&power=${score.power}&realm=${score.realm}&exp=${score.stats.expertise}&prestige=${score.stats.prestige}&impact=${score.stats.impact}&creds=${score.stats.credentials}&network=${score.stats.network}&abilities=${score.abilities.map(a => a.icon).join(",")}`
     : undefined;
 
-  const inputStyle = {
-    width: "100%", padding: "8px 10px", fontSize: "14px",
-    border: "0.5px solid #ddd", borderRadius: "8px",
-    background: "#fafafa", color: "#111", marginTop: "4px",
-    outline: "none",
-  };
+  const inputStyle = { width: "100%", padding: "8px 10px", fontSize: "14px", border: "0.5px solid #ddd", borderRadius: "8px", background: "#fafafa", color: "#111", marginTop: "4px", outline: "none" };
   const labelStyle = { fontSize: "12px", color: "#666", display: "block" as const };
   const fieldStyle = { display: "flex", flexDirection: "column" as const, gap: "2px" };
   const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" } as const;
@@ -177,28 +149,18 @@ export default function Home() {
         <div style={{ marginBottom: "40px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#111", margin: 0 }}>World Scale</h1>
-            <p style={{ fontSize: "15px", color: "#888", margin: "6px 0 0" }}>
-              Your real-world credentials, turned into a fantasy character.
-            </p>
+            <p style={{ fontSize: "15px", color: "#888", margin: "6px 0 0" }}>Your real-world credentials, turned into a fantasy character.</p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", paddingTop: "4px" }}>
-            <button onClick={() => router.push('/leaderboard')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>
-              Leaderboard
-            </button>
-            <button onClick={() => router.push('/map')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>
-              Map
-            </button>
+            <button onClick={() => router.push('/leaderboard')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>Leaderboard</button>
+            <button onClick={() => router.push('/map')} style={{ padding: '7px 16px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', fontWeight: 500 }}>Map</button>
             {userEmail ? (
               <>
                 <span style={{ fontSize: "13px", color: "#888" }}>{userEmail}</span>
-                <button onClick={() => router.push("/profile")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "0.5px solid #ddd", background: "#fff", color: "#111", cursor: "pointer", fontWeight: 500 }}>
-                  My Character
-                </button>
+                <button onClick={() => router.push("/profile")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "0.5px solid #ddd", background: "#fff", color: "#111", cursor: "pointer", fontWeight: 500 }}>My Character</button>
               </>
             ) : (
-              <button onClick={() => router.push("/auth")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "none", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 500 }}>
-                Sign In
-              </button>
+              <button onClick={() => router.push("/auth")} style={{ padding: "7px 16px", borderRadius: "8px", fontSize: "13px", border: "none", background: "#111", color: "#fff", cursor: "pointer", fontWeight: 500 }}>Sign In</button>
             )}
           </div>
         </div>
@@ -219,13 +181,7 @@ export default function Home() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "24px" }}>
               {(Object.keys(REALM_LABELS) as Realm[]).map(r => (
                 <button key={r} onClick={() => { setRealm(r); setScore(null); setError(""); setSaveMsg(null); }}
-                  style={{
-                    padding: "8px 16px", borderRadius: "8px", fontSize: "13px", cursor: "pointer",
-                    border: realm === r ? "none" : "0.5px solid #ddd",
-                    background: realm === r ? "#111" : "none",
-                    color: realm === r ? "#fff" : "#666",
-                    fontWeight: realm === r ? 600 : 400,
-                  }}>
+                  style={{ padding: "8px 16px", borderRadius: "8px", fontSize: "13px", cursor: "pointer", border: realm === r ? "none" : "0.5px solid #ddd", background: realm === r ? "#111" : "none", color: realm === r ? "#fff" : "#666", fontWeight: realm === r ? 600 : 400 }}>
                   {REALM_LABELS[r]}
                 </button>
               ))}
@@ -253,28 +209,15 @@ export default function Home() {
               </div>
             )}
 
-            {/* Tech form */}
+            {/* Tech form — manual only */}
             {realm === "tech" && (
-              <>
-                <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-                  {(["github", "manual"] as InputMode[]).map(m => (
-                    <button key={m} onClick={() => setMode(m)} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", cursor: "pointer", border: mode === m ? "none" : "0.5px solid #ddd", background: mode === m ? "#111" : "none", color: mode === m ? "#fff" : "#666" }}>
-                      {m === "github" ? "🐙 GitHub username" : "✏️ Manual"}
-                    </button>
-                  ))}
-                </div>
-                {mode === "github" ? (
-                  <div style={fieldStyle}><label style={labelStyle}>GitHub username</label><input style={inputStyle} value={ghUser} onChange={e => setGhUser(e.target.value)} placeholder="torvalds" /></div>
-                ) : (
-                  <div style={grid2}>
-                    <div style={fieldStyle}><label style={labelStyle}>Public repos</label><input style={inputStyle} type="number" value={repos} onChange={e => setRepos(e.target.value)} placeholder="40" /></div>
-                    <div style={fieldStyle}><label style={labelStyle}>Total stars</label><input style={inputStyle} type="number" value={stars} onChange={e => setStars(e.target.value)} placeholder="2000" /></div>
-                    <div style={fieldStyle}><label style={labelStyle}>Followers</label><input style={inputStyle} type="number" value={followers} onChange={e => setFollowers(e.target.value)} placeholder="500" /></div>
-                    <div style={fieldStyle}><label style={labelStyle}>Est. total commits</label><input style={inputStyle} type="number" value={commits} onChange={e => setCommits(e.target.value)} placeholder="1000" /></div>
-                    <div style={fieldStyle}><label style={labelStyle}>Years active</label><input style={inputStyle} type="number" value={tYears} onChange={e => setTYears(e.target.value)} placeholder="6" /></div>
-                  </div>
-                )}
-              </>
+              <div style={grid2}>
+                <div style={fieldStyle}><label style={labelStyle}>Public repos</label><input style={inputStyle} type="number" value={repos} onChange={e => setRepos(e.target.value)} placeholder="40" /></div>
+                <div style={fieldStyle}><label style={labelStyle}>Total stars</label><input style={inputStyle} type="number" value={stars} onChange={e => setStars(e.target.value)} placeholder="2000" /></div>
+                <div style={fieldStyle}><label style={labelStyle}>Followers</label><input style={inputStyle} type="number" value={followers} onChange={e => setFollowers(e.target.value)} placeholder="500" /></div>
+                <div style={fieldStyle}><label style={labelStyle}>Est. total commits</label><input style={inputStyle} type="number" value={commits} onChange={e => setCommits(e.target.value)} placeholder="1000" /></div>
+                <div style={fieldStyle}><label style={labelStyle}>Years active</label><input style={inputStyle} type="number" value={tYears} onChange={e => setTYears(e.target.value)} placeholder="6" /></div>
+              </div>
             )}
 
             {/* Medicine form */}
