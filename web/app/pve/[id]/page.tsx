@@ -1110,6 +1110,12 @@ export default function PvEPage() {
     })
   }
 
+  // Returns the boss's current effective defence (reduced if debuffed)
+  function getBossDefence() {
+    const b = boss as Boss & { _tempDefence?: number }
+    return b?._tempDefence ?? boss?.defence ?? 0
+  }
+
   function handleStrike() {
     const me = teamRef.current.find(f => f.userId === userIdRef.current)
     if (!me || phaseRef.current !== 'fighting' || me.isStunned || me.isDead) return
@@ -1117,7 +1123,7 @@ export default function PvEPage() {
 
     const myPos = positionsRef.current.get(me.userId)
     const effectiveAttack = me.attack * me.attackDebuffMultiplier
-    const damage = calcDamage(effectiveAttack, (boss?.defence ?? 0), 1.0, false)
+    const damage = calcDamage(effectiveAttack, getBossDefence(), 1.0, false)
 
     // Spawn visual sword projectile
     if (myPos) {
@@ -1162,7 +1168,7 @@ export default function PvEPage() {
 
     // ── Offensive damage to boss ─────────────────────────────────────────────
     if (skill.multiplier) {
-      const damage = calcDamage(effectiveAttack, boss?.defence ?? 0, skill.multiplier, false)
+      const damage = calcDamage(effectiveAttack, getBossDefence(), skill.multiplier, false)
       // Spawn realm projectile visual
       if (myPos) {
         const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', damage)
