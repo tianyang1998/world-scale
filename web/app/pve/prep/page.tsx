@@ -42,7 +42,10 @@ function PvEPrepInner() {
 
       const c = data.character as CharacterData
       setCharacter(c)
-      setSelectedRealm(Object.keys(c.realms)[0] ?? 'academia')
+      // Pick realm with highest contribution to total power
+      const topRealm = Object.entries(c.realms)
+        .sort(([, a], [, b]) => b.power - a.power)[0]?.[0] ?? 'academia'
+      setSelectedRealm(topRealm)
 
       const total = c.total_power
       setHp(Math.floor(total * 0.40))
