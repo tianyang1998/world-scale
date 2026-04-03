@@ -37,7 +37,7 @@ const WALLS = [
   { x1: 280, y1: 80, x2: 520, y2: 80, t: 12 }, { x1: 280, y1: 420, x2: 520, y2: 420, t: 12 },
   { x1: 80, y1: 180, x2: 80, y2: 320, t: 12 }, { x1: 720, y1: 180, x2: 720, y2: 320, t: 12 },
 ]
-const REALM_ICONS: Record<string, string> = { academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️' }
+
 
 function clampToPillar(x: number, y: number, px: number, py: number, pr: number) {
   const dx = x - px; const dy = y - py; const d = Math.sqrt(dx*dx+dy*dy); const min = pr + PLAYER_RADIUS
@@ -143,34 +143,167 @@ export default function BattlePage() {
     const dtMs = lastFrameTime.current ? timestamp-lastFrameTime.current : 16
     lastFrameTime.current = timestamp
     const myPos = myPosRef.current; const oppPos = oppPosRef.current
-    ctx.clearRect(0,0,ARENA_W,ARENA_H); ctx.fillStyle='#0d0d18'; ctx.fillRect(0,0,ARENA_W,ARENA_H)
-    ctx.strokeStyle='rgba(155,114,207,0.04)'; ctx.lineWidth=1
-    for (let x=0;x<ARENA_W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ARENA_H);ctx.stroke()}
-    for (let y=0;y<ARENA_H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(ARENA_W,y);ctx.stroke()}
-    ctx.strokeStyle='rgba(155,114,207,0.25)'; ctx.lineWidth=2; ctx.strokeRect(1,1,ARENA_W-2,ARENA_H-2)
+    ctx.clearRect(0, 0, ARENA_W, ARENA_H)
+
+    // ── Dungeon floor ─────────────────────────────────────────────────────────
+    const floorGrad = ctx.createLinearGradient(0, 0, 0, ARENA_H)
+    floorGrad.addColorStop(0, '#1a1018')
+    floorGrad.addColorStop(0.5, '#130d16')
+    floorGrad.addColorStop(1, '#0d0a10')
+    ctx.fillStyle = floorGrad
+    ctx.fillRect(0, 0, ARENA_W, ARENA_H)
+
+    // Stone tile grid
+    ctx.strokeStyle = 'rgba(120,90,60,0.07)'
+    ctx.lineWidth = 1
+    for (let x = 0; x < ARENA_W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ARENA_H); ctx.stroke() }
+    for (let y = 0; y < ARENA_H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ARENA_W, y); ctx.stroke() }
+
+    // Torchlight pools in corners
+    const torchPositions = [
+      { x: 0, y: 0 }, { x: ARENA_W, y: 0 },
+      { x: 0, y: ARENA_H }, { x: ARENA_W, y: ARENA_H },
+    ]
+    for (const t of torchPositions) {
+      const tg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 180)
+      tg.addColorStop(0, `rgba(200,120,30,${0.08 + 0.03 * Math.sin(timestamp * 0.002 + t.x)})`)
+      tg.addColorStop(1, 'transparent')
+      ctx.fillStyle = tg
+      ctx.fillRect(0, 0, ARENA_W, ARENA_H)
+    }
+
+    // Vignette
+    const vignette = ctx.createRadialGradient(ARENA_W/2, ARENA_H/2, 60, ARENA_W/2, ARENA_H/2, ARENA_W*0.75)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.6)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, ARENA_W, ARENA_H)
+
+    // Border
+    ctx.strokeStyle = 'rgba(155,114,207,0.45)'
+    ctx.lineWidth = 3
+    ctx.shadowColor = 'rgba(155,114,207,0.25)'
+    ctx.shadowBlur = 8
+    ctx.strokeRect(2, 2, ARENA_W-4, ARENA_H-4)
+    ctx.shadowBlur = 0
+
+    // ── Walls — stone blocks ──────────────────────────────────────────────────
     for (const w of WALLS) {
-      const isH=w.y1===w.y2; ctx.fillStyle='rgba(80,60,120,0.6)'; ctx.strokeStyle='rgba(155,114,207,0.4)'; ctx.lineWidth=1.5
-      if(isH){ctx.fillRect(w.x1,w.y1-w.t/2,w.x2-w.x1,w.t);ctx.strokeRect(w.x1,w.y1-w.t/2,w.x2-w.x1,w.t)}
-      else{ctx.fillRect(w.x1-w.t/2,w.y1,w.t,w.y2-w.y1);ctx.strokeRect(w.x1-w.t/2,w.y1,w.t,w.y2-w.y1)}
+      const isH = w.y1 === w.y2
+      ctx.save()
+      ctx.globalAlpha = 0.4
+      ctx.fillStyle = '#000'
+      if (isH) ctx.fillRect(w.x1+3, w.y1-w.t/2+3, w.x2-w.x1, w.t)
+      else      ctx.fillRect(w.x1-w.t/2+3, w.y1+3, w.t, w.y2-w.y1)
+      ctx.restore()
+      const wallGrad = isH
+        ? ctx.createLinearGradient(w.x1, w.y1-w.t/2, w.x1, w.y1+w.t/2)
+        : ctx.createLinearGradient(w.x1-w.t/2, w.y1, w.x1+w.t/2, w.y1)
+      wallGrad.addColorStop(0, 'rgba(100,80,60,0.9)')
+      wallGrad.addColorStop(0.5, 'rgba(70,55,40,0.95)')
+      wallGrad.addColorStop(1, 'rgba(40,30,20,0.9)')
+      ctx.fillStyle = wallGrad
+      ctx.strokeStyle = 'rgba(160,130,80,0.4)'
+      ctx.lineWidth = 1.5
+      if (isH) { ctx.fillRect(w.x1,w.y1-w.t/2,w.x2-w.x1,w.t); ctx.strokeRect(w.x1,w.y1-w.t/2,w.x2-w.x1,w.t) }
+      else     { ctx.fillRect(w.x1-w.t/2,w.y1,w.t,w.y2-w.y1); ctx.strokeRect(w.x1-w.t/2,w.y1,w.t,w.y2-w.y1) }
     }
+
+    // ── Pillars — carved stone columns ───────────────────────────────────────
     for (const p of PILLARS) {
-      ctx.beginPath();ctx.arc(p.x+3,p.y+4,p.r,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fill()
-      const g=ctx.createRadialGradient(p.x-p.r*.3,p.y-p.r*.3,p.r*.1,p.x,p.y,p.r)
-      g.addColorStop(0,'rgba(110,80,160,0.9)');g.addColorStop(1,'rgba(40,30,70,0.95)')
-      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=g;ctx.fill()
-      ctx.strokeStyle='rgba(155,114,207,0.5)';ctx.lineWidth=1.5;ctx.stroke()
+      ctx.beginPath(); ctx.arc(p.x+4, p.y+5, p.r, 0, Math.PI*2)
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fill()
+      const pg = ctx.createRadialGradient(p.x-p.r*0.35, p.y-p.r*0.35, p.r*0.05, p.x, p.y, p.r)
+      pg.addColorStop(0, 'rgba(140,110,80,0.95)')
+      pg.addColorStop(0.5, 'rgba(90,70,50,0.95)')
+      pg.addColorStop(1, 'rgba(40,30,20,0.98)')
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2)
+      ctx.fillStyle = pg; ctx.fill()
+      ctx.strokeStyle = 'rgba(200,160,90,0.35)'; ctx.lineWidth = 1.5; ctx.stroke()
+      ctx.save()
+      ctx.globalAlpha = 0.22
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(p.x-p.r*0.3, p.y-p.r*0.35, p.r*0.3, p.r*0.15, -0.4, 0, Math.PI*2)
+      ctx.fill()
+      ctx.restore()
     }
-    // Draw players
+
+    // ── Players — cute blobs ──────────────────────────────────────────────────
+    const REALM_BLOB_COLORS: Record<string,string> = {
+      academia: '#5588ee', tech: '#44ddaa', medicine: '#44cc66',
+      creative: '#ee8844', law: '#aa66ee',
+    }
     const drawP = (pos: ArenaPlayer, f: Fighter|null, isMe: boolean) => {
-      if(!f) return; const color=isMe?'#9b72cf':'#cf7272'
-      if(f.isBracing){ctx.beginPath();ctx.arc(pos.x,pos.y,PLAYER_RADIUS+6,0,Math.PI*2);ctx.fillStyle='rgba(55,138,221,0.2)';ctx.fill();ctx.strokeStyle='rgba(55,138,221,0.6)';ctx.lineWidth=2;ctx.stroke()}
-      ctx.beginPath();ctx.arc(pos.x,pos.y,PLAYER_RADIUS,0,Math.PI*2);ctx.fillStyle=isMe?'rgba(100,60,160,0.9)':'rgba(160,60,60,0.9)';ctx.fill();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke()
-      ctx.beginPath();ctx.moveTo(pos.x,pos.y);ctx.lineTo(pos.x+Math.cos(pos.facing)*(PLAYER_RADIUS+5),pos.y+Math.sin(pos.facing)*(PLAYER_RADIUS+5));ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke()
-      ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(REALM_ICONS[f.realm]??'🌐',pos.x,pos.y)
-      ctx.font='500 9px system-ui';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle=isMe?'#c8a8f0':'#f0a8a8'
-      ctx.fillText(f.name.slice(0,10),pos.x,pos.y-PLAYER_RADIUS-5)
+      if (!f) return
+      const blobColor = REALM_BLOB_COLORS[f.realm] ?? (isMe ? '#9b72cf' : '#cf7272')
+      const R = PLAYER_RADIUS
+
+      // Brace glow
+      if (f.isBracing) {
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, R+7, 0, Math.PI*2)
+        ctx.fillStyle = 'rgba(55,138,221,0.15)'; ctx.fill()
+        ctx.strokeStyle = 'rgba(100,180,255,0.7)'; ctx.lineWidth = 2
+        ctx.shadowColor = '#3399ff'; ctx.shadowBlur = 8
+        ctx.stroke(); ctx.shadowBlur = 0
+      }
+
+      // Outer glow
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, R+5, 0, Math.PI*2)
+      ctx.fillStyle = blobColor + '28'
+      ctx.shadowColor = blobColor; ctx.shadowBlur = 12
+      ctx.fill(); ctx.shadowBlur = 0
+
+      // Ground shadow
+      ctx.save()
+      ctx.globalAlpha = 0.28
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y+R+3, R*0.7, 4, 0, 0, Math.PI*2)
+      ctx.fill()
+      ctx.restore()
+
+      // Blob body
+      ctx.fillStyle = blobColor
+      ctx.shadowColor = blobColor; ctx.shadowBlur = isMe ? 10 : 4
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y+2, R, R*0.92, 0, 0, Math.PI*2)
+      ctx.fill(); ctx.shadowBlur = 0
+
+      // Belly shading
+      ctx.save()
+      ctx.globalAlpha = 0.22
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y+5, R*0.6, R*0.35, 0, 0, Math.PI*2)
+      ctx.fill()
+      ctx.restore()
+
+      // Eyes
+      const eyeY = pos.y - 1
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(pos.x-5, eyeY, 3.5, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.arc(pos.x+5, eyeY, 3.5, 0, Math.PI*2); ctx.fill()
+      ctx.fillStyle = '#1a1a2a'
+      ctx.beginPath(); ctx.arc(pos.x-4, eyeY+1, 2, 0, Math.PI*2); ctx.fill()
+      ctx.beginPath(); ctx.arc(pos.x+4, eyeY+1, 2, 0, Math.PI*2); ctx.fill()
+
+      // Glint
+      ctx.save()
+      ctx.globalAlpha = 0.5
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(pos.x-4, pos.y-7, 4, 2.5, -0.5, 0, Math.PI*2)
+      ctx.fill()
+      ctx.restore()
+
+      // Name
+      ctx.font = `${isMe ? '600' : '500'} 9px system-ui`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+      ctx.fillStyle = isMe ? '#fff' : 'rgba(255,200,200,0.9)'
+      ctx.fillText(f.name.slice(0,10), pos.x, pos.y-R-5)
     }
-    drawP(myPos,meRef.current,true); drawP(oppPos,opponentRef.current,false)
+    drawP(myPos, meRef.current, true); drawP(oppPos, opponentRef.current, false)
 
     // Projectiles
     const surviving: Projectile[] = []
