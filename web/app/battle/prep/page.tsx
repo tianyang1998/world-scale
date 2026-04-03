@@ -13,19 +13,23 @@ interface CharacterData {
   realms: Record<string, { power: number }>
 }
 
+const REALM_ICONS: Record<string, string> = {
+  academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
+}
+
 function PrepPageInner() {
   const router = useRouter()
   const params = useSearchParams()
-  const battleId  = params.get('battle_id')
+  const battleId      = params.get('battle_id')
   const opponentName  = params.get('opponent_name')
   const opponentPower = Number(params.get('opponent_power') ?? 0)
 
-  const [character, setCharacter] = useState<CharacterData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [hp,      setHp]      = useState(0)
-  const [attack,  setAttack]  = useState(0)
-  const [defence, setDefence] = useState(0)
-  const [active,  setActive]  = useState<'hp' | 'attack' | 'defence'>('hp')
+  const [character,     setCharacter]     = useState<CharacterData | null>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [hp,            setHp]            = useState(0)
+  const [attack,        setAttack]        = useState(0)
+  const [defence,       setDefence]       = useState(0)
+  const [selectedRealm, setSelectedRealm] = useState<string>('')
 
   const supabase = createClient()
 
@@ -34,14 +38,14 @@ function PrepPageInner() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
 
-      const res = await fetch('/api/character/get')
+      const res  = await fetch('/api/character/get')
       const data = await res.json()
       if (!data.character) { router.push('/'); return }
 
       const c = data.character as CharacterData
       setCharacter(c)
+      setSelectedRealm(Object.keys(c.realms)[0] ?? 'academia')
 
-      // Default split: 40% HP, 35% Attack, 25% Defence
       const total = c.total_power
       setHp(Math.floor(total * 0.40))
       setAttack(Math.floor(total * 0.35))
@@ -51,7 +55,6 @@ function PrepPageInner() {
     load()
   }, [])
 
-  // When a slider moves, adjust the other two proportionally
   function handleSlider(stat: 'hp' | 'attack' | 'defence', value: number) {
     if (!character) return
     const total = character.total_power
@@ -60,26 +63,22 @@ function PrepPageInner() {
     if (stat === 'hp') {
       const ratio = defence / (attack + defence) || 0.5
       const newDefence = Math.round(remaining * ratio)
-      const newAttack  = remaining - newDefence
-      setHp(value); setAttack(newAttack); setDefence(newDefence)
+      setHp(value); setAttack(remaining - newDefence); setDefence(newDefence)
     } else if (stat === 'attack') {
       const ratio = defence / (hp + defence) || 0.5
       const newDefence = Math.round(remaining * ratio)
-      const newHp      = remaining - newDefence
-      setAttack(value); setHp(newHp); setDefence(newDefence)
+      setAttack(value); setHp(remaining - newDefence); setDefence(newDefence)
     } else {
       const ratio = attack / (hp + attack) || 0.5
       const newAttack = Math.round(remaining * ratio)
-      const newHp     = remaining - newAttack
-      setDefence(value); setAttack(newAttack); setHp(newHp)
+      setDefence(value); setAttack(newAttack); setHp(remaining - newAttack)
     }
   }
 
   function handleEnterBattle() {
     if (!character || !battleId) return
-    const realm = Object.keys(character.realms)[0] ?? 'academia'
     router.push(
-      `/battle/${battleId}?hp=${hp}&attack=${attack}&defence=${defence}&realm=${realm}`
+      `/battle/${battleId}?hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
     )
   }
 
@@ -91,12 +90,11 @@ function PrepPageInner() {
     )
   }
 
-  const total      = character.total_power
-  const tierStyle  = getTierStyle(total)
-  const realm      = Object.keys(character.realms)[0] ?? 'academia'
-  const realmSkill = REALM_SKILLS[realm]
-
-  const statColor = { hp: '#E24B4A', attack: '#EF9F27', defence: '#378ADD' }
+  const total          = character.total_power
+  const tierStyle      = getTierStyle(total)
+  const realmSkill     = REALM_SKILLS[selectedRealm]
+  const availableRealms = Object.keys(character.realms)
+  const statColor      = { hp: '#E24B4A', attack: '#EF9F27', defence: '#378ADD' }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '"Cinzel", serif', padding: '2rem', color: '#e8e0f0' }}>
@@ -106,7 +104,6 @@ function PrepPageInner() {
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; }
       `}</style>
 
-      {/* Background */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', backgroundImage: `radial-gradient(ellipse at 20% 50%, rgba(99,57,134,0.12) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(163,45,45,0.08) 0%, transparent 50%)` }} />
 
       <div style={{ maxWidth: '560px', margin: '0 auto', position: 'relative' }}>
@@ -116,9 +113,7 @@ function PrepPageInner() {
           <p style={{ fontFamily: '"Crimson Text", serif', color: '#6b5c80', fontSize: '0.9rem', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>
             PREPARE FOR BATTLE
           </p>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', letterSpacing: '0.1em' }}>
-            {character.name}
-          </h1>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', letterSpacing: '0.1em' }}>{character.name}</h1>
           <div style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.8rem', background: tierStyle.bg + '22', border: `1px solid ${tierStyle.color}55`, borderRadius: '999px', color: tierStyle.color, fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
             {tierStyle.name}
           </div>
@@ -145,19 +140,17 @@ function PrepPageInner() {
             Distribute your {total.toLocaleString()} power across HP, Attack, and Defence
           </p>
 
-          {/* Total check */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
             <div style={{ padding: '0.3rem 1rem', background: hp + attack + defence === total ? 'rgba(30,120,80,0.15)' : 'rgba(163,45,45,0.15)', border: `1px solid ${hp + attack + defence === total ? 'rgba(30,120,80,0.3)' : 'rgba(163,45,45,0.3)'}`, borderRadius: '999px', fontSize: '0.75rem', fontFamily: '"Crimson Text", serif', color: hp + attack + defence === total ? '#5dcaa5' : '#f09595' }}>
               {(hp + attack + defence).toLocaleString()} / {total.toLocaleString()} allocated
             </div>
           </div>
 
-          {/* HP slider */}
           {(['hp', 'attack', 'defence'] as const).map(stat => {
-            const val     = stat === 'hp' ? hp : stat === 'attack' ? attack : defence
-            const label   = stat === 'hp' ? '❤️ HP' : stat === 'attack' ? '⚔️ Attack' : '🛡️ Defence'
-            const color   = statColor[stat]
-            const pct     = Math.round((val / total) * 100)
+            const val   = stat === 'hp' ? hp : stat === 'attack' ? attack : defence
+            const label = stat === 'hp' ? '❤️ HP' : stat === 'attack' ? '⚔️ Attack' : '🛡️ Defence'
+            const color = statColor[stat]
+            const pct   = Math.round((val / total) * 100)
             return (
               <div key={stat} style={{ marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -167,10 +160,7 @@ function PrepPageInner() {
                   </span>
                 </div>
                 <input
-                  type="range"
-                  min={1}
-                  max={total - 2}
-                  value={val}
+                  type="range" min={1} max={total - 2} value={val}
                   onChange={e => handleSlider(stat, Number(e.target.value))}
                   style={{ background: `linear-gradient(to right, ${color} ${pct}%, rgba(155,114,207,0.15) ${pct}%)` }}
                 />
@@ -178,6 +168,30 @@ function PrepPageInner() {
             )
           })}
         </div>
+
+        {/* Realm picker — only shown if player has multiple realms */}
+        {availableRealms.length > 1 && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <p style={{ margin: '0 0 0.75rem', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4a3860' }}>Choose your realm</p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {availableRealms.map(r => {
+                const skill = REALM_SKILLS[r]
+                const isSelected = r === selectedRealm
+                return (
+                  <button
+                    key={r}
+                    onClick={() => setSelectedRealm(r)}
+                    style={{ flex: 1, minWidth: '80px', padding: '0.6rem 0.5rem', background: isSelected ? 'rgba(155,114,207,0.2)' : 'transparent', border: `1px solid ${isSelected ? 'rgba(155,114,207,0.5)' : 'rgba(155,114,207,0.15)'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                  >
+                    <div style={{ fontSize: '1.2rem' }}>{REALM_ICONS[r] ?? '🌐'}</div>
+                    <div style={{ fontFamily: '"Cinzel", serif', fontSize: '0.55rem', color: isSelected ? '#c8a8f0' : '#6b5c80', letterSpacing: '0.08em', marginTop: '3px', textTransform: 'capitalize' }}>{r}</div>
+                    {skill && <div style={{ fontFamily: '"Crimson Text", serif', fontSize: '0.7rem', color: isSelected ? '#9b72cf' : '#4a3860', marginTop: '2px' }}>{skill.icon} {skill.name}</div>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Skills preview */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>

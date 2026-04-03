@@ -29,6 +29,8 @@ function PvEPrepInner() {
   const supabase = createClient()
   const boss = BOSSES[bossTier]
 
+  const [selectedRealm, setSelectedRealm] = useState<string>('')
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -40,6 +42,7 @@ function PvEPrepInner() {
 
       const c = data.character as CharacterData
       setCharacter(c)
+      setSelectedRealm(Object.keys(c.realms)[0] ?? 'academia')
 
       const total = c.total_power
       setHp(Math.floor(total * 0.40))
@@ -72,9 +75,8 @@ function PvEPrepInner() {
 
   function handleEnterBoss() {
     if (!character || !battleId) return
-    const realm = Object.keys(character.realms)[0] ?? 'academia'
     router.push(
-      `/pve/${battleId}?boss_tier=${encodeURIComponent(bossTier)}&hp=${hp}&attack=${attack}&defence=${defence}&realm=${realm}`
+      `/pve/${battleId}?boss_tier=${encodeURIComponent(bossTier)}&hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
     )
   }
 
@@ -88,9 +90,13 @@ function PvEPrepInner() {
 
   const total      = character.total_power
   const tierStyle  = getTierStyle(total)
-  const realm      = Object.keys(character.realms)[0] ?? 'academia'
-  const realmSkill = REALM_SKILLS[realm]
+  const realmSkill = REALM_SKILLS[selectedRealm]
   const statColor  = { hp: '#E24B4A', attack: '#EF9F27', defence: '#378ADD' }
+  const availableRealms = Object.keys(character.realms)
+
+  const REALM_ICONS: Record<string, string> = {
+    academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '"Cinzel", serif', padding: '2rem', color: '#e8e0f0' }}>
@@ -177,6 +183,30 @@ function PvEPrepInner() {
             )
           })}
         </div>
+
+        {/* Realm picker — only shown if player has multiple realms */}
+        {availableRealms.length > 1 && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <p style={{ margin: '0 0 0.75rem', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4a3860' }}>Choose your realm</p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {availableRealms.map(r => {
+                const skill = REALM_SKILLS[r]
+                const isSelected = r === selectedRealm
+                return (
+                  <button
+                    key={r}
+                    onClick={() => setSelectedRealm(r)}
+                    style={{ flex: 1, minWidth: '80px', padding: '0.6rem 0.5rem', background: isSelected ? 'rgba(155,114,207,0.2)' : 'transparent', border: `1px solid ${isSelected ? 'rgba(155,114,207,0.5)' : 'rgba(155,114,207,0.15)'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}
+                  >
+                    <div style={{ fontSize: '1.2rem' }}>{REALM_ICONS[r] ?? '🌐'}</div>
+                    <div style={{ fontFamily: '"Cinzel", serif', fontSize: '0.55rem', color: isSelected ? '#c8a8f0' : '#6b5c80', letterSpacing: '0.08em', marginTop: '3px', textTransform: 'capitalize' }}>{r}</div>
+                    {skill && <div style={{ fontFamily: '"Crimson Text", serif', fontSize: '0.7rem', color: isSelected ? '#9b72cf' : '#4a3860', marginTop: '2px' }}>{skill.icon} {skill.name}</div>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Skills preview */}
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
