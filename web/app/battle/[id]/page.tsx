@@ -349,7 +349,6 @@ export default function BattlePage() {
   }
 
   const realmCooldownLeft=Math.max(0,(realmCooldownUntil-now)/1000)
-  const realmSkill=REALM_SKILLS[realm]
 
   const handleStrikeRef = useRef(handleStrike)
   const handleBraceRef = useRef(handleBrace)
