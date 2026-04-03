@@ -54,6 +54,33 @@ const REALM_ICONS: Record<string, string> = {
   academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
 }
 
+// ── Biome config ──────────────────────────────────────────────────────────────
+const BIOME: Record<string, { sky: [string, string]; ground: string; hill: string; accent: string }> = {
+  Apprentice:  { sky: ['#1a1a2e', '#2d2a4a'], ground: '#2a2a1a', hill: '#3a3a22', accent: '#888780' },
+  Initiate:    { sky: ['#1a2e1a', '#2a4a2a'], ground: '#1a2e1a', hill: '#2a4a1a', accent: '#7aaa50' },
+  Acolyte:     { sky: ['#1a2e20', '#2a4a30'], ground: '#1a3020', hill: '#2a5030', accent: '#50cc70' },
+  Journeyman:  { sky: ['#102030', '#1a3a50'], ground: '#102840', hill: '#1a3850', accent: '#3a8ab0' },
+  Adept:       { sky: ['#101830', '#1a2850'], ground: '#101830', hill: '#1a2848', accent: '#5070c0' },
+  Scholar:     { sky: ['#100e30', '#1e1a50'], ground: '#100e30', hill: '#1e1a50', accent: '#7060d0' },
+  Sage:        { sky: ['#1a0e30', '#2e1a50'], ground: '#1a0e30', hill: '#2e1a50', accent: '#9060c0' },
+  Arcanist:    { sky: ['#200e28', '#381448'], ground: '#200e28', hill: '#381448', accent: '#b050c0' },
+  Exemplar:    { sky: ['#280e1a', '#481428'], ground: '#280e1a', hill: '#481428', accent: '#c04080' },
+  Vanguard:    { sky: ['#2e1008', '#501808'], ground: '#2e1008', hill: '#501808', accent: '#c06030' },
+  Master:      { sky: ['#301008', '#582010'], ground: '#301008', hill: '#582010', accent: '#d07020' },
+  Grandmaster: { sky: ['#381408', '#602808'], ground: '#381408', hill: '#602808', accent: '#e08030' },
+  Champion:    { sky: ['#400808', '#700808'], ground: '#400808', hill: '#700808', accent: '#e04020' },
+  Paragon:     { sky: ['#480808', '#800808'], ground: '#480808', hill: '#800808', accent: '#f03030' },
+  Legend:      { sky: ['#200020', '#500050'], ground: '#200020', hill: '#500050', accent: '#ff40ff' },
+}
+
+const REALM_COLORS: Record<string, string> = {
+  academia: '#5588ee',
+  tech:     '#44ddaa',
+  medicine: '#44cc66',
+  creative: '#ee8844',
+  law:      '#aa66ee',
+}
+
 // Check if a world-space X position is inside a tier's boss zone
 function getBossZoneTier(x: number): string | null {
   for (const [tier, zone] of Object.entries(TIER_ZONES)) {
@@ -82,13 +109,13 @@ export default function MapPage() {
   const [myStats,        setMyStats]        = useState<{ hp: number; attack: number; defence: number } | null>(null)
   const [challenge,      setChallenge]      = useState<ChallengeRequest | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<MapPlayer | null>(null)
-  const [bossPrompt,     setBossPrompt]     = useState<string | null>(null) // tier name of boss zone entered
+  const [bossPrompt,     setBossPrompt]     = useState<string | null>(null)
   const [enteringBoss,   setEnteringBoss]   = useState(false)
   const [pveInvite,      setPveInvite]      = useState<{ fromName: string; battleId: string; bossName: string; bossTier: string } | null>(null)
   const [loading,        setLoading]        = useState(true)
   const [error,          setError]          = useState<string | null>(null)
 
-  // ── Canvas draw loop ────────────────────────────────────────────────────────
+  // ── Canvas draw loop ──────────────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -98,114 +125,271 @@ export default function MapPage() {
     const me = myPlayerRef.current
     const cw = canvas.width
     const ch = canvas.height
+    const now = performance.now()
 
     const camX = me ? Math.max(0, Math.min(me.x - cw / 2, MAP_WIDTH - cw)) : 0
 
     ctx.clearRect(0, 0, cw, ch)
 
-    // Background
-    ctx.fillStyle = '#0a0a0f'
-    ctx.fillRect(0, 0, cw, ch)
-
-    // Tier zones
+    // ── Draw each visible tier zone ─────────────────────────────────────────
     TIERS.forEach(t => {
-      const zone = TIER_ZONES[t.name]
-      if (!zone) return
-      const screenX = zone.x - camX
-      if (screenX + zone.width < 0 || screenX > cw) return
+      const zone  = TIER_ZONES[t.name]
+      const biome = BIOME[t.name]
+      if (!zone || !biome) return
+      const sx = zone.x - camX
+      if (sx + zone.width < 0 || sx > cw) return
 
-      // Main zone
-      ctx.fillStyle = zone.color
-      ctx.fillRect(screenX, 0, zone.width, ch)
+      // Sky gradient
+      const skyGrad = ctx.createLinearGradient(sx, 0, sx, ch * 0.72)
+      skyGrad.addColorStop(0, biome.sky[0])
+      skyGrad.addColorStop(1, biome.sky[1])
+      ctx.fillStyle = skyGrad
+      ctx.fillRect(sx, 0, zone.width, ch * 0.72)
+
+      // Ground gradient
+      const groundGrad = ctx.createLinearGradient(sx, ch * 0.72, sx, ch)
+      groundGrad.addColorStop(0, biome.ground)
+      groundGrad.addColorStop(1, '#000')
+      ctx.fillStyle = groundGrad
+      ctx.fillRect(sx, ch * 0.72, zone.width, ch * 0.28)
+
+      // Rolling hills along the horizon
+      const seed  = zone.x
+      const hillY = ch * 0.72
+      ctx.fillStyle = biome.hill
+      ctx.beginPath()
+      ctx.moveTo(sx, ch)
+      ctx.lineTo(sx, hillY + 20 + Math.sin(seed * 0.05) * 18)
+      ctx.bezierCurveTo(
+        sx + zone.width * 0.25, hillY - 10 + Math.sin(seed * 0.03) * 20,
+        sx + zone.width * 0.5,  hillY + 30 + Math.sin(seed * 0.07) * 15,
+        sx + zone.width * 0.75, hillY - 5  + Math.cos(seed * 0.04) * 22,
+      )
+      ctx.lineTo(sx + zone.width, hillY + 15 + Math.sin(seed * 0.06) * 16)
+      ctx.lineTo(sx + zone.width, ch)
+      ctx.closePath()
+      ctx.fill()
+
+      // Glowing horizon line
+      ctx.save()
+      ctx.globalAlpha = 0.18
+      ctx.strokeStyle = biome.accent
+      ctx.lineWidth = 2
+      ctx.shadowColor = biome.accent
+      ctx.shadowBlur = 8
+      ctx.beginPath()
+      ctx.moveTo(sx, hillY + 20 + Math.sin(seed * 0.05) * 18)
+      ctx.bezierCurveTo(
+        sx + zone.width * 0.25, hillY - 10 + Math.sin(seed * 0.03) * 20,
+        sx + zone.width * 0.5,  hillY + 30 + Math.sin(seed * 0.07) * 15,
+        sx + zone.width * 0.75, hillY - 5  + Math.cos(seed * 0.04) * 22,
+      )
+      ctx.stroke()
+      ctx.restore()
+
+      // Stars in sky for higher tiers (Scholar+)
+      const tierIndex = TIERS.findIndex(x => x.name === t.name)
+      if (tierIndex >= 5) {
+        for (let i = 0; i < 5; i++) {
+          const starX  = sx + ((seed * 37 + i * 137) % zone.width)
+          const starY  = 20 + ((seed * 17 + i * 97) % (ch * 0.55))
+          const pulse  = 0.5 + 0.5 * Math.sin(now * 0.002 + i + seed)
+          ctx.save()
+          ctx.globalAlpha = pulse * 0.4
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(starX, starY, 1.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
+      // Soft border between zones
+      const borderGrad = ctx.createLinearGradient(sx, 0, sx + 4, 0)
+      borderGrad.addColorStop(0, biome.accent + '40')
+      borderGrad.addColorStop(1, 'transparent')
+      ctx.fillStyle = borderGrad
+      ctx.fillRect(sx, 0, 4, ch)
 
       // Zone label
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'
-      ctx.font = '500 11px "Cinzel", serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(t.name, screenX + zone.width / 2, 20)
-
-      // Boss lair — dark red strip on right edge of zone
-      const bossX = screenX + zone.width - BOSS_ZONE_WIDTH
-      ctx.fillStyle = 'rgba(163,45,45,0.18)'
-      ctx.fillRect(bossX, 0, BOSS_ZONE_WIDTH, ch)
-
-      // Skull icon centered in boss zone
-      ctx.font = '16px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('💀', bossX + BOSS_ZONE_WIDTH / 2, ch / 2)
-
-      // "LAIR" label
       ctx.save()
-      ctx.translate(bossX + BOSS_ZONE_WIDTH / 2, ch / 2 + 22)
-      ctx.rotate(-Math.PI / 2)
+      ctx.globalAlpha = 0.75
+      ctx.font = '600 11px "Cinzel", serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = biome.accent
+      ctx.shadowColor = biome.accent
+      ctx.shadowBlur = 6
+      ctx.fillText(t.name.toUpperCase(), sx + zone.width / 2, 14)
+      ctx.restore()
+
+      // ── Boss lair cave mouth ──────────────────────────────────────────────
+      const bossX  = sx + zone.width - BOSS_ZONE_WIDTH
+      const lairCX = bossX + BOSS_ZONE_WIDTH / 2
+      const lairCY = ch / 2
+      const pulse  = 0.6 + 0.4 * Math.sin(now * 0.003 + seed)
+
+      // Pulsing ground glow
+      const lairGlow = ctx.createRadialGradient(lairCX, lairCY, 0, lairCX, lairCY, 38)
+      lairGlow.addColorStop(0, `rgba(163,45,45,${0.3 * pulse})`)
+      lairGlow.addColorStop(1, 'transparent')
+      ctx.fillStyle = lairGlow
+      ctx.fillRect(bossX - 10, lairCY - 38, BOSS_ZONE_WIDTH + 20, 76)
+
+      // Cave arch body
+      ctx.save()
+      ctx.fillStyle = '#050205'
+      ctx.strokeStyle = `rgba(200,60,60,${0.5 + 0.3 * pulse})`
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#cc2222'
+      ctx.shadowBlur = 10 * pulse
+      ctx.beginPath()
+      ctx.arc(lairCX, lairCY, 18, Math.PI, 0)
+      ctx.lineTo(lairCX + 18, lairCY + 14)
+      ctx.lineTo(lairCX - 18, lairCY + 14)
+      ctx.closePath()
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+
+      // Stalactite teeth
+      ctx.fillStyle = '#050205'
+      for (let i = 0; i < 4; i++) {
+        const tx = lairCX - 12 + i * 8
+        const ty = lairCY - 15 + (i % 2) * 4
+        ctx.beginPath()
+        ctx.moveTo(tx - 3, ty)
+        ctx.lineTo(tx + 3, ty)
+        ctx.lineTo(tx, ty + 8)
+        ctx.closePath()
+        ctx.fill()
+      }
+
+      // Glowing red eyes inside cave
+      ctx.save()
+      ctx.globalAlpha = 0.6 + 0.4 * pulse
+      ctx.fillStyle = '#ff2222'
+      ctx.shadowColor = '#ff0000'
+      ctx.shadowBlur = 6
+      ctx.beginPath(); ctx.arc(lairCX - 5, lairCY - 2, 2.5, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(lairCX + 5, lairCY - 2, 2.5, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+
+      // LAIR label
+      ctx.save()
       ctx.font = '500 7px system-ui'
       ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = 'rgba(240,149,149,0.4)'
-      ctx.fillText('LAIR', 0, 0)
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = `rgba(240,149,149,${0.4 + 0.3 * pulse})`
+      ctx.fillText('LAIR', lairCX, lairCY + 18)
       ctx.restore()
     })
 
-    // Vertical dividers
-    ctx.strokeStyle = 'rgba(155,114,207,0.08)'
-    ctx.lineWidth = 1
-    TIERS.forEach(t => {
-      const zone = TIER_ZONES[t.name]
-      if (!zone) return
-      const screenX = zone.x - camX
-      ctx.beginPath()
-      ctx.moveTo(screenX, 0)
-      ctx.lineTo(screenX, ch)
-      ctx.stroke()
-    })
-
-    // Players
+    // ── Players ─────────────────────────────────────────────────────────────
     playersRef.current.forEach(player => {
       const sx = player.x - camX
       const sy = player.y
       if (sx < -40 || sx > cw + 40) return
 
-      const isMe    = player.userId === myPlayerRef.current?.userId
-      const ts      = getTierStyle(player.totalPower)
-      const sameTier = myPlayerRef.current ? isSameTier(player.tier, myPlayerRef.current.tier) : false
+      const isMe      = player.userId === myPlayerRef.current?.userId
+      const sameTier  = myPlayerRef.current ? isSameTier(player.tier, myPlayerRef.current.tier) : false
+      const blobColor = REALM_COLORS[player.realm] ?? '#9b72cf'
 
+      // Gentle bob — unique phase per player position
+      const bobPhase = (player.x * 0.3 + player.y * 0.7) % (Math.PI * 2)
+      const bob = Math.sin(now * 0.003 + bobPhase) * 3
+      const bx  = sx
+      const by  = sy + bob
+      const R   = 18
+
+      // Ground shadow
+      ctx.save()
+      ctx.globalAlpha = 0.25
+      ctx.fillStyle = '#000'
       ctx.beginPath()
-      ctx.arc(sx, sy, 18, 0, Math.PI * 2)
-      ctx.fillStyle = isMe ? ts.color : sameTier ? ts.bg : 'rgba(60,52,89,0.8)'
+      ctx.ellipse(bx, by + R + 4, R * 0.7, 4, 0, 0, Math.PI * 2)
       ctx.fill()
-      ctx.strokeStyle = isMe ? ts.color : sameTier ? ts.color : 'rgba(155,114,207,0.2)'
-      ctx.lineWidth = isMe ? 3 : 1.5
-      ctx.stroke()
+      ctx.restore()
 
-      ctx.font = '14px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(REALM_ICONS[player.realm] ?? '🌐', sx, sy)
-
-      ctx.font = '500 10px system-ui'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'alphabetic'
-      ctx.fillStyle = isMe ? '#e8e0f0' : 'rgba(200,168,240,0.7)'
-      ctx.fillText(player.name.slice(0, 12), sx, sy + 32)
-
-      if (!isMe && sameTier) {
-        ctx.fillStyle = 'rgba(163,45,45,0.8)'
+      // Outer glow for self or battleable players
+      if (isMe || sameTier) {
+        ctx.save()
+        ctx.globalAlpha = isMe ? 0.35 : 0.2
+        ctx.fillStyle   = isMe ? blobColor : '#e03030'
+        ctx.shadowColor = isMe ? blobColor : '#e03030'
+        ctx.shadowBlur  = 16
         ctx.beginPath()
-        ctx.roundRect(sx - 18, sy - 32, 36, 14, 4)
+        ctx.arc(bx, by, R + 5, 0, Math.PI * 2)
         ctx.fill()
-        ctx.fillStyle = '#f09595'
-        ctx.font = '500 8px system-ui'
+        ctx.restore()
+      }
+
+      // Blob body
+      ctx.save()
+      ctx.fillStyle   = blobColor
+      ctx.shadowColor = blobColor
+      ctx.shadowBlur  = isMe ? 12 : 4
+      ctx.beginPath()
+      ctx.ellipse(bx, by + 2, R, R * 0.92, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      // Darker belly shading
+      ctx.save()
+      ctx.globalAlpha = 0.25
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.ellipse(bx, by + 6, R * 0.65, R * 0.4, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      // White dot eyes
+      const eyeY = by - 2
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(bx - 6, eyeY, 4.5, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(bx + 6, eyeY, 4.5, 0, Math.PI * 2); ctx.fill()
+
+      // Pupils
+      ctx.fillStyle = '#1a1a2a'
+      ctx.beginPath(); ctx.arc(bx - 5, eyeY + 1, 2.5, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(bx + 5, eyeY + 1, 2.5, 0, Math.PI * 2); ctx.fill()
+
+      // Highlight glint
+      ctx.save()
+      ctx.globalAlpha = 0.55
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(bx - 5, by - 8, 5, 3, -0.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      // Player name
+      ctx.font = `${isMe ? '600' : '500'} 10px system-ui`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = isMe ? '#fff' : 'rgba(220,200,255,0.75)'
+      ctx.fillText(player.name.slice(0, 12), bx, by + R + 8)
+
+      // FIGHT badge for same-tier other players
+      if (!isMe && sameTier) {
+        ctx.save()
+        ctx.fillStyle = 'rgba(200,40,40,0.9)'
+        ctx.beginPath()
+        ctx.roundRect(bx - 18, by - R - 18, 36, 14, 4)
+        ctx.fill()
+        ctx.fillStyle = '#ffbbbb'
+        ctx.font = '600 8px system-ui'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText('FIGHT', sx, sy - 25)
+        ctx.fillText('FIGHT', bx, by - R - 11)
+        ctx.restore()
       }
     })
 
     animFrameRef.current = requestAnimationFrame(draw)
   }, [])
 
-  // ── Movement loop ───────────────────────────────────────────────────────────
+  // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
     const moveInterval = setInterval(() => {
       const me = myPlayerRef.current
@@ -222,10 +406,9 @@ export default function MapPage() {
       if (moved) {
         playersRef.current.set(me.userId, { ...me })
 
-        // Check if player stepped into a boss zone
         const bossZoneTier = getBossZoneTier(me.x)
         if (bossZoneTier && bossZoneTier === myPlayerRef.current?.tier) {
-          setBossPrompt(prev => prev ?? bossZoneTier) // only set if not already showing
+          setBossPrompt(prev => prev ?? bossZoneTier)
         } else {
           setBossPrompt(null)
         }
@@ -245,7 +428,7 @@ export default function MapPage() {
     return () => clearInterval(moveInterval)
   }, [])
 
-  // ── Canvas click → challenge ────────────────────────────────────────────────
+  // ── Canvas click → challenge ──────────────────────────────────────────────
   function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
     const me     = myPlayerRef.current
@@ -268,7 +451,7 @@ export default function MapPage() {
     if (hit) setSelectedPlayer(hit)
   }
 
-  // ── PvP challenge flow ──────────────────────────────────────────────────────
+  // ── PvP challenge flow ────────────────────────────────────────────────────
   async function sendChallenge(target: MapPlayer) {
     setSelectedPlayer(null)
     if (!isSameTier(myTier, target.tier)) {
@@ -298,7 +481,7 @@ export default function MapPage() {
     router.push(`/battle/prep?battle_id=${data.battle_id}&opponent_name=${encodeURIComponent(target.name)}&opponent_power=${target.totalPower}`)
   }
 
-  // ── PvE enter boss lair ─────────────────────────────────────────────────────
+  // ── PvE enter boss lair ───────────────────────────────────────────────────
   async function enterBossLair() {
     if (!bossPrompt || !myStats) return
     setEnteringBoss(true)
@@ -312,17 +495,16 @@ export default function MapPage() {
       return
     }
 
-    // Broadcast invite to same-tier players on the map
     channelRef.current?.send({
       type: 'broadcast',
       event: 'pve_invite',
       payload: {
-        fromId:    myPlayerRef.current?.userId,
-        fromName:  myPlayerRef.current?.name ?? 'Unknown',
-        fromTier:  myTier,
-        battleId:  data.battle_id,
-        bossName:  data.boss_name,
-        bossTier:  data.boss_tier,
+        fromId:   myPlayerRef.current?.userId,
+        fromName: myPlayerRef.current?.name ?? 'Unknown',
+        fromTier: myTier,
+        battleId: data.battle_id,
+        bossName: data.boss_name,
+        bossTier: data.boss_tier,
       },
     })
 
@@ -333,7 +515,6 @@ export default function MapPage() {
     )
   }
 
-  // Join an existing PvE session from an invite — also goes through prep
   function joinBossLair(invite: { battleId: string; bossTier: string }) {
     setPveInvite(null)
     router.push(
@@ -343,7 +524,7 @@ export default function MapPage() {
     )
   }
 
-  // ── Init ────────────────────────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -412,10 +593,9 @@ export default function MapPage() {
         }
       })
 
-      // PvE invite — show to same-tier players only
       channel.on('broadcast', { event: 'pve_invite' }, ({ payload }: { payload: { fromId: string, fromName: string, fromTier: string, battleId: string, bossName: string, bossTier: string } }) => {
-        if (payload.fromId === user.id) return // ignore own broadcast
-        if (payload.fromTier !== myPlayerRef.current?.tier) return // different tier
+        if (payload.fromId === user.id) return
+        if (payload.fromTier !== myPlayerRef.current?.tier) return
         setPveInvite({ fromName: payload.fromName, battleId: payload.battleId, bossName: payload.bossName, bossTier: payload.bossTier })
       })
 
@@ -444,7 +624,7 @@ export default function MapPage() {
     }
   }, [draw])
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   const bossForPrompt = bossPrompt ? BOSSES[bossPrompt] : null
 
   return (
@@ -485,7 +665,7 @@ export default function MapPage() {
 
           {/* Controls hint */}
           <div style={{ position: 'absolute', bottom: '12px', left: '12px', fontFamily: '"Crimson Text", serif', color: 'rgba(155,114,207,0.5)', fontSize: '0.8rem' }}>
-            Move: WASD or Arrow keys · Click a player to challenge · Walk into 💀 to fight the boss
+            Move: WASD or Arrow keys · Click a player to challenge · Walk into a lair to fight the boss
           </div>
 
           {/* My tier badge */}
