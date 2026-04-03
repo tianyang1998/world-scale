@@ -103,6 +103,10 @@ export default function MapPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
+  const [canvasDims, setCanvasDims] = useState(() => ({
+    width:  typeof window !== 'undefined' ? window.innerWidth  : 1800,
+    height: typeof window !== 'undefined' ? window.innerHeight : 600,
+  }))
   const [userId,         setUserId]         = useState<string | null>(null)
   const [myTier,         setMyTier]         = useState<string>('')
   const [myRealm,        setMyRealm]        = useState<string>('academia')
@@ -401,7 +405,7 @@ export default function MapPage() {
       if (keys.has('ArrowLeft')  || keys.has('a')) { me.x = Math.max(18, me.x - PLAYER_SPEED); moved = true }
       if (keys.has('ArrowRight') || keys.has('d')) { me.x = Math.min(MAP_WIDTH - 18, me.x + PLAYER_SPEED); moved = true }
       if (keys.has('ArrowUp')    || keys.has('w')) { me.y = Math.max(18, me.y - PLAYER_SPEED); moved = true }
-      if (keys.has('ArrowDown')  || keys.has('s')) { me.y = Math.min(MAP_HEIGHT - 18, me.y + PLAYER_SPEED); moved = true }
+      if (keys.has('ArrowDown')  || keys.has('s')) { me.y = Math.min((canvasRef.current?.height ?? MAP_HEIGHT) - 18, me.y + PLAYER_SPEED); moved = true }
 
       if (moved) {
         playersRef.current.set(me.userId, { ...me })
@@ -608,8 +612,10 @@ export default function MapPage() {
 
     const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
     const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
+    const onResize  = () => setCanvasDims({ width: window.innerWidth, height: window.innerHeight })
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup',   onKeyUp)
+    window.addEventListener('resize',  onResize)
 
     init()
 
@@ -621,6 +627,7 @@ export default function MapPage() {
       }
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup',   onKeyUp)
+      window.removeEventListener('resize',  onResize)
     }
   }, [draw])
 
@@ -628,7 +635,7 @@ export default function MapPage() {
   const bossForPrompt = bossPrompt ? BOSSES[bossPrompt] : null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: '"Cinzel", serif', color: '#e8e0f0' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#0a0a0f', fontFamily: '"Cinzel", serif', color: '#e8e0f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital@0;1&display=swap');
         @keyframes flicker { 0%,100%{opacity:1} 45%{opacity:0.85} 50%{opacity:0.7} 55%{opacity:0.9} }
@@ -654,11 +661,11 @@ export default function MapPage() {
 
       {/* Map canvas */}
       {!loading && (
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
           <canvas
             ref={canvasRef}
-            width={Math.min(typeof window !== 'undefined' ? window.innerWidth : 1200, 1200)}
-            height={MAP_HEIGHT}
+            width={canvasDims.width}
+            height={canvasDims.height}
             onClick={handleCanvasClick}
             style={{ display: 'block', cursor: 'crosshair' }}
           />
