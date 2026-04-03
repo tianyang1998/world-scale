@@ -108,6 +108,7 @@ export default function MapPage() {
   const fadeDirRef     = useRef<'in' | 'out' | null>(null)
   const fadeStartRef   = useRef<number>(0)
   const pendingTierRef = useRef<string | null>(null)
+  const transitionToTierRef = useRef<(tier: string) => void>(() => {})
 
   const [userId,         setUserId]         = useState<string | null>(null)
   const [myTier,         setMyTier]         = useState<string>('')
@@ -184,6 +185,7 @@ export default function MapPage() {
     fadeStartRef.current = performance.now()
     setTransitioning(true)
   }, [])
+  transitionToTierRef.current = transitionToTier
 
   const completeTierTransition = useCallback((newTier: string) => {
     const me = myPlayerRef.current
@@ -587,7 +589,7 @@ export default function MapPage() {
 
         // Left portal
         if (me.x <= EXIT_ZONE_WIDTH && tierIdx > 0) {
-          transitionToTier(TIER_NAMES[tierIdx - 1])
+          transitionToTierRef.current(TIER_NAMES[tierIdx - 1])
           return
         }
 
@@ -596,7 +598,7 @@ export default function MapPage() {
           if (isHomeTier && me.x >= MAP_W - BOSS_ZONE_WIDTH) {
             setBossPrompt(prev => prev ?? currentTierRef.current)
           } else if (me.x >= MAP_W - EXIT_ZONE_WIDTH && me.x < MAP_W - BOSS_ZONE_WIDTH && tierIdx < TIER_NAMES.length - 1) {
-            transitionToTier(TIER_NAMES[tierIdx + 1])
+            transitionToTierRef.current(TIER_NAMES[tierIdx + 1])
             return
           }
         } else {
@@ -616,7 +618,7 @@ export default function MapPage() {
     }, 16)
 
     return () => clearInterval(moveInterval)
-  }, [transitionToTier])
+  }, [])
 
   // ── Canvas click → challenge ──────────────────────────────────────────────
 
