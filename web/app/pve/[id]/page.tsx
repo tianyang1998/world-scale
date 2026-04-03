@@ -69,10 +69,6 @@ const WALLS = [
   { x1: 80,  y1: 180, x2: 80,  y2: 320, t: 12 },
 ]
 
-const REALM_ICONS: Record<string, string> = {
-  academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
-}
-
 // Spawn positions for up to 3 players
 const SPAWN_POSITIONS: ArenaPos[] = [
   { x: 100, y: 200, facing: 0 },
@@ -393,26 +389,70 @@ export default function PvEPage() {
 
     ctx.clearRect(0, 0, ARENA_W, ARENA_H)
 
-    // Floor
-    ctx.fillStyle = '#0d0d18'
+    // ── Dungeon floor ─────────────────────────────────────────────────────────
+    // Stone floor base
+    const floorGrad = ctx.createLinearGradient(0, 0, 0, ARENA_H)
+    floorGrad.addColorStop(0, '#1a1018')
+    floorGrad.addColorStop(0.5, '#130d16')
+    floorGrad.addColorStop(1, '#0d0a10')
+    ctx.fillStyle = floorGrad
     ctx.fillRect(0, 0, ARENA_W, ARENA_H)
 
-    // Grid
-    ctx.strokeStyle = 'rgba(155,114,207,0.04)'
+    // Stone tile grid — subtle, warm-toned
+    ctx.strokeStyle = 'rgba(120,90,60,0.07)'
     ctx.lineWidth = 1
-    for (let x = 0; x < ARENA_W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ARENA_H); ctx.stroke() }
-    for (let y = 0; y < ARENA_H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ARENA_W, y); ctx.stroke() }
+    for (let x = 0; x < ARENA_W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ARENA_H); ctx.stroke() }
+    for (let y = 0; y < ARENA_H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(ARENA_W, y); ctx.stroke() }
 
-    // Border
-    ctx.strokeStyle = 'rgba(163,45,45,0.3)'
-    ctx.lineWidth = 2
-    ctx.strokeRect(1, 1, ARENA_W - 2, ARENA_H - 2)
+    // Torchlight pools in corners — warm orange glow
+    const torchPositions = [
+      { x: 0,      y: 0      },
+      { x: ARENA_W, y: 0      },
+      { x: 0,      y: ARENA_H },
+      { x: ARENA_W, y: ARENA_H },
+    ]
+    for (const t of torchPositions) {
+      const tg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 180)
+      tg.addColorStop(0, `rgba(200,120,30,${0.08 + 0.03 * Math.sin(timestamp * 0.002 + t.x)})`)
+      tg.addColorStop(1, 'transparent')
+      ctx.fillStyle = tg
+      ctx.fillRect(0, 0, ARENA_W, ARENA_H)
+    }
 
-    // Walls
+    // Vignette — dark edges, lighter center
+    const vignette = ctx.createRadialGradient(ARENA_W / 2, ARENA_H / 2, 80, ARENA_W / 2, ARENA_H / 2, ARENA_W * 0.75)
+    vignette.addColorStop(0, 'transparent')
+    vignette.addColorStop(1, 'rgba(0,0,0,0.55)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, ARENA_W, ARENA_H)
+
+    // Stone border with torchlit glow
+    ctx.strokeStyle = 'rgba(163,45,45,0.5)'
+    ctx.lineWidth = 3
+    ctx.shadowColor = 'rgba(163,45,45,0.3)'
+    ctx.shadowBlur = 8
+    ctx.strokeRect(2, 2, ARENA_W - 4, ARENA_H - 4)
+    ctx.shadowBlur = 0
+
+    // ── Walls — stone blocks ──────────────────────────────────────────────────
     for (const w of WALLS) {
       const isH = w.y1 === w.y2
-      ctx.fillStyle = 'rgba(80,60,120,0.6)'
-      ctx.strokeStyle = 'rgba(155,114,207,0.4)'
+      // Shadow
+      ctx.save()
+      ctx.globalAlpha = 0.4
+      ctx.fillStyle = '#000'
+      if (isH) ctx.fillRect(w.x1 + 3, w.y1 - w.t / 2 + 3, w.x2 - w.x1, w.t)
+      else      ctx.fillRect(w.x1 - w.t / 2 + 3, w.y1 + 3, w.t, w.y2 - w.y1)
+      ctx.restore()
+      // Stone fill
+      const wallGrad = isH
+        ? ctx.createLinearGradient(w.x1, w.y1 - w.t / 2, w.x1, w.y1 + w.t / 2)
+        : ctx.createLinearGradient(w.x1 - w.t / 2, w.y1, w.x1 + w.t / 2, w.y1)
+      wallGrad.addColorStop(0, 'rgba(100,80,60,0.9)')
+      wallGrad.addColorStop(0.5, 'rgba(70,55,40,0.95)')
+      wallGrad.addColorStop(1, 'rgba(40,30,20,0.9)')
+      ctx.fillStyle = wallGrad
+      ctx.strokeStyle = 'rgba(160,130,80,0.4)'
       ctx.lineWidth = 1.5
       if (isH) {
         ctx.fillRect(w.x1, w.y1 - w.t / 2, w.x2 - w.x1, w.t)
@@ -423,52 +463,136 @@ export default function PvEPage() {
       }
     }
 
-    // Pillars
+    // ── Pillars — carved stone columns ───────────────────────────────────────
     for (const p of PILLARS) {
-      ctx.beginPath(); ctx.arc(p.x + 3, p.y + 4, p.r, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fill()
-      const g = ctx.createRadialGradient(p.x - p.r * 0.3, p.y - p.r * 0.3, p.r * 0.1, p.x, p.y, p.r)
-      g.addColorStop(0, 'rgba(110,80,160,0.9)')
-      g.addColorStop(1, 'rgba(40,30,70,0.95)')
+      // Drop shadow
+      ctx.beginPath(); ctx.arc(p.x + 4, p.y + 5, p.r, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fill()
+      // Stone body gradient
+      const pg = ctx.createRadialGradient(p.x - p.r * 0.35, p.y - p.r * 0.35, p.r * 0.05, p.x, p.y, p.r)
+      pg.addColorStop(0, 'rgba(140,110,80,0.95)')
+      pg.addColorStop(0.5, 'rgba(90,70,50,0.95)')
+      pg.addColorStop(1, 'rgba(40,30,20,0.98)')
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fillStyle = g; ctx.fill()
-      ctx.strokeStyle = 'rgba(155,114,207,0.5)'; ctx.lineWidth = 1.5; ctx.stroke()
+      ctx.fillStyle = pg; ctx.fill()
+      // Rim highlight
+      ctx.strokeStyle = 'rgba(200,160,90,0.35)'; ctx.lineWidth = 1.5; ctx.stroke()
+      // Top highlight glint
+      ctx.save()
+      ctx.globalAlpha = 0.25
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(p.x - p.r * 0.3, p.y - p.r * 0.35, p.r * 0.3, p.r * 0.15, -0.4, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
     }
 
-    // Boss
+    // ── Boss — big cute-scary blob ────────────────────────────────────────────
     const bossState = bossStateRef.current
     const bossHpPct = boss ? bossState.currentHp / boss.hp : 0
     const bossColor = bossHpPct > 0.5 ? '#cf3333' : bossHpPct > 0.25 ? '#cf7733' : '#8b0000'
     const bx = bossPosRef.current.x
     const by = bossPosRef.current.y
+    const bossPulse = 0.96 + 0.04 * Math.sin(timestamp * 0.004)
+    const bR = BOSS_RADIUS * bossPulse
 
-    // Boss glow
-    ctx.beginPath(); ctx.arc(bx, by, BOSS_RADIUS + 12, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(163,45,45,0.12)'; ctx.fill()
+    // Outer danger glow
+    const bossGlow = ctx.createRadialGradient(bx, by, bR * 0.5, bx, by, bR + 30)
+    bossGlow.addColorStop(0, `rgba(163,45,45,${0.15 + 0.1 * bossPulse})`)
+    bossGlow.addColorStop(1, 'transparent')
+    ctx.fillStyle = bossGlow
+    ctx.beginPath(); ctx.arc(bx, by, bR + 30, 0, Math.PI * 2); ctx.fill()
 
-    // Boss body
-    const bg = ctx.createRadialGradient(bx - 10, by - 10, 4, bx, by, BOSS_RADIUS)
-    bg.addColorStop(0, 'rgba(180,50,50,0.95)')
-    bg.addColorStop(1, 'rgba(60,10,10,0.98)')
-    ctx.beginPath(); ctx.arc(bx, by, BOSS_RADIUS, 0, Math.PI * 2)
-    ctx.fillStyle = bg; ctx.fill()
-    ctx.strokeStyle = bossColor; ctx.lineWidth = 3; ctx.stroke()
+    // Ground shadow
+    ctx.save()
+    ctx.globalAlpha = 0.35
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.ellipse(bx, by + bR + 6, bR * 0.8, 6, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
 
-    // Boss icon
-    ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(boss?.icon ?? '👹', bx, by)
+    // Blob body — squished, menacing
+    const blobGrad = ctx.createRadialGradient(bx - bR * 0.3, by - bR * 0.3, bR * 0.1, bx, by + 4, bR)
+    blobGrad.addColorStop(0, bossHpPct > 0.5 ? 'rgba(220,60,60,0.97)' : bossHpPct > 0.25 ? 'rgba(210,100,30,0.97)' : 'rgba(140,10,10,0.97)')
+    blobGrad.addColorStop(1, 'rgba(20,5,5,0.99)')
+    ctx.fillStyle = blobGrad
+    ctx.shadowColor = bossColor
+    ctx.shadowBlur = 16
+    ctx.beginPath()
+    ctx.ellipse(bx, by + 3, bR, bR * 0.9, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.shadowBlur = 0
 
-    // Boss name + HP bar above
-    ctx.font = '600 11px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+    // Darker belly
+    ctx.save()
+    ctx.globalAlpha = 0.2
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.ellipse(bx, by + bR * 0.4, bR * 0.65, bR * 0.35, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+
+    // Rim stroke
+    ctx.strokeStyle = bossColor; ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.ellipse(bx, by + 3, bR, bR * 0.9, 0, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Boss eyes — large angry eyes
+    const eyeY = by - bR * 0.15
+    const eyeAnger = Math.PI * 0.18 // angry eyebrow angle
+    // White of eyes
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.ellipse(bx - bR * 0.32, eyeY, 7, 9, -eyeAnger, 0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.ellipse(bx + bR * 0.32, eyeY, 7, 9,  eyeAnger, 0, Math.PI * 2); ctx.fill()
+    // Pupils — red and menacing
+    ctx.fillStyle = bossColor
+    ctx.shadowColor = bossColor; ctx.shadowBlur = 8
+    ctx.beginPath(); ctx.arc(bx - bR * 0.3, eyeY + 2, 4, 0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.arc(bx + bR * 0.3, eyeY + 2, 4, 0, Math.PI * 2); ctx.fill()
+    ctx.shadowBlur = 0
+    // Angry brow lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.lineWidth = 3; ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(bx - bR * 0.5, eyeY - 10); ctx.lineTo(bx - bR * 0.15, eyeY - 6)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(bx + bR * 0.5, eyeY - 10); ctx.lineTo(bx + bR * 0.15, eyeY - 6)
+    ctx.stroke()
+    ctx.lineCap = 'butt'
+
+    // Highlight glint
+    ctx.save()
+    ctx.globalAlpha = 0.2
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.ellipse(bx - bR * 0.25, by - bR * 0.5, bR * 0.28, bR * 0.14, -0.5, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+
+    // Boss name above
+    ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = '#f09595'
-    ctx.fillText(boss?.name ?? 'Boss', bx, by - BOSS_RADIUS - 22)
+    ctx.shadowColor = '#f09595'; ctx.shadowBlur = 6
+    ctx.fillText(boss?.name ?? 'Boss', bx, by - bR - 22)
+    ctx.shadowBlur = 0
 
-    const barW = 90; const barH = 6
-    const barX = bx - barW / 2; const barY = by - BOSS_RADIUS - 18
-    ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(barX, barY, barW, barH)
-    ctx.fillStyle = bossColor; ctx.fillRect(barX, barY, barW * bossHpPct, barH)
+    // HP bar
+    const barW = 100; const barH = 7
+    const barX = bx - barW / 2; const barY = by - bR - 17
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2)
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(barX, barY, barW, barH)
+    ctx.fillStyle = bossColor
+    ctx.shadowColor = bossColor; ctx.shadowBlur = 6
+    ctx.fillRect(barX, barY, barW * bossHpPct, barH)
+    ctx.shadowBlur = 0
 
-    // Players
+    // ── Players — cute blobs ──────────────────────────────────────────────────
+    const REALM_BLOB_COLORS: Record<string, string> = {
+      academia: '#5588ee', tech: '#44ddaa', medicine: '#44cc66',
+      creative: '#ee8844', law: '#aa66ee',
+    }
     const myId = userIdRef.current
     teamRef.current.forEach((fighter) => {
       const pos = positionsRef.current.get(fighter.userId)
@@ -476,40 +600,82 @@ export default function PvEPage() {
       if (!ctx) return
 
       const isMe = fighter.userId === myId
-      const color = isMe ? '#9b72cf' : '#72b8cf'
+      const blobColor = REALM_BLOB_COLORS[fighter.realm] ?? '#9b72cf'
+      const R = PLAYER_RADIUS
 
-      if (fighter.isDead) {
-        ctx.globalAlpha = 0.3
-      }
+      ctx.save()
+      if (fighter.isDead) ctx.globalAlpha = 0.28
 
-      // Brace glow
+      // Brace glow — blue shield ring
       if (fighter.isBracing) {
-        ctx.beginPath(); ctx.arc(pos.x, pos.y, PLAYER_RADIUS + 6, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(55,138,221,0.2)'; ctx.fill()
-        ctx.strokeStyle = 'rgba(55,138,221,0.6)'; ctx.lineWidth = 2; ctx.stroke()
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, R + 7, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(55,138,221,0.15)'; ctx.fill()
+        ctx.strokeStyle = 'rgba(100,180,255,0.7)'; ctx.lineWidth = 2
+        ctx.shadowColor = '#3399ff'; ctx.shadowBlur = 8
+        ctx.stroke()
+        ctx.shadowBlur = 0
       }
 
-      // Body
-      ctx.beginPath(); ctx.arc(pos.x, pos.y, PLAYER_RADIUS, 0, Math.PI * 2)
-      ctx.fillStyle = isMe ? 'rgba(100,60,160,0.9)' : 'rgba(60,100,160,0.9)'
+      // Outer glow for self
+      if (isMe) {
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, R + 6, 0, Math.PI * 2)
+        ctx.fillStyle = blobColor + '33'
+        ctx.shadowColor = blobColor; ctx.shadowBlur = 14
+        ctx.fill(); ctx.shadowBlur = 0
+      }
+
+      // Ground shadow
+      ctx.save()
+      ctx.globalAlpha = (fighter.isDead ? 0.08 : 0.25)
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y + R + 3, R * 0.7, 4, 0, 0, Math.PI * 2)
       ctx.fill()
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke()
+      ctx.restore()
 
-      // Direction
-      ctx.beginPath(); ctx.moveTo(pos.x, pos.y)
-      ctx.lineTo(pos.x + Math.cos(pos.facing) * (PLAYER_RADIUS + 5), pos.y + Math.sin(pos.facing) * (PLAYER_RADIUS + 5))
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke()
+      // Blob body
+      ctx.fillStyle = blobColor
+      ctx.shadowColor = blobColor
+      ctx.shadowBlur = isMe ? 10 : 3
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y + 2, R, R * 0.92, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
 
-      // Icon
-      ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      ctx.fillText(REALM_ICONS[fighter.realm] ?? '🌐', pos.x, pos.y)
+      // Belly shading
+      ctx.save()
+      ctx.globalAlpha = 0.22
+      ctx.fillStyle = '#000'
+      ctx.beginPath()
+      ctx.ellipse(pos.x, pos.y + 5, R * 0.6, R * 0.35, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
 
-      // Name
-      ctx.font = '500 9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
-      ctx.fillStyle = isMe ? '#c8a8f0' : '#a8c8f0'
-      ctx.fillText(fighter.name.slice(0, 10) + (fighter.isDead ? ' 💀' : ''), pos.x, pos.y - PLAYER_RADIUS - 5)
+      // Eyes
+      const eyeY = pos.y - 1
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(pos.x - 5, eyeY, 3.5, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(pos.x + 5, eyeY, 3.5, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#1a1a2a'
+      ctx.beginPath(); ctx.arc(pos.x - 4, eyeY + 1, 2, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(pos.x + 4, eyeY + 1, 2, 0, Math.PI * 2); ctx.fill()
 
-      ctx.globalAlpha = 1
+      // Glint
+      ctx.save()
+      ctx.globalAlpha = 0.5
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(pos.x - 4, pos.y - 7, 4, 2.5, -0.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+
+      // Name label
+      ctx.font = `${isMe ? '600' : '500'} 9px system-ui`
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+      ctx.fillStyle = isMe ? '#fff' : 'rgba(220,200,255,0.8)'
+      ctx.fillText(fighter.name.slice(0, 10) + (fighter.isDead ? ' 💀' : ''), pos.x, pos.y - R - 5)
+
+      ctx.restore()
     })
 
     // Range indicator for local player
