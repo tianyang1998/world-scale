@@ -109,6 +109,8 @@ export default function MapPage() {
   const fadeStartRef   = useRef<number>(0)
   const pendingTierRef = useRef<string | null>(null)
   const transitionToTierRef = useRef<(tier: string) => void>(() => {})
+  const drawRef              = useRef<(ts: number) => void>(() => {})
+  const joinTierChannelRef   = useRef<(tier: string, player: MapPlayer) => void>(() => {})
 
   const [userId,         setUserId]         = useState<string | null>(null)
   const [myTier,         setMyTier]         = useState<string>('')
@@ -175,6 +177,7 @@ export default function MapPage() {
       }
     })
   }, [supabase])
+  joinTierChannelRef.current = joinTierChannel
 
   // ── Tier transition ───────────────────────────────────────────────────────
 
@@ -563,8 +566,9 @@ export default function MapPage() {
       ctx.restore()
     }
 
-    animFrameRef.current = requestAnimationFrame(draw)
+    animFrameRef.current = requestAnimationFrame((ts) => drawRef.current(ts))
   }, [completeTierTransition])
+  drawRef.current = draw
 
   // ── Movement loop ─────────────────────────────────────────────────────────
 
@@ -727,8 +731,8 @@ export default function MapPage() {
       playersRef.current.set(user.id, myPlayer)
       setLoading(false)
 
-      joinTierChannel(tier, myPlayer)
-      animFrameRef.current = requestAnimationFrame(draw)
+      joinTierChannelRef.current(tier, myPlayer)
+      animFrameRef.current = requestAnimationFrame((ts) => drawRef.current(ts))
     }
 
     const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
@@ -744,7 +748,8 @@ export default function MapPage() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [draw, joinTierChannel])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
