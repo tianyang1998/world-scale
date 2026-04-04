@@ -697,13 +697,30 @@ export default function MapPage() {
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
+  // ── Key listeners (own effect so they're never torn down by async races) ──
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
+    const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup',   onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup',   onKeyUp)
+    }
+  }, [])
+
+  // ── Init (guarded against strict-mode double-mount) ──
+  useEffect(() => {
+    let ignore = false
+
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
+      if (ignore) return
       if (!user) { router.push('/auth'); return }
       setUserId(user.id)
 
       const res  = await fetch('/api/character/get')
+      if (ignore) return
       const data = await res.json()
       if (!data.character) { router.push('/'); return }
 
@@ -735,18 +752,12 @@ export default function MapPage() {
       animFrameRef.current = requestAnimationFrame((ts) => drawRef.current(ts))
     }
 
-    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
-    const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-
     init()
 
     return () => {
+      ignore = true
       cancelAnimationFrame(animFrameRef.current)
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
