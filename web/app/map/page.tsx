@@ -13,8 +13,8 @@ interface MapPlayer {
   userId: string
   name: string
   totalPower: number
-  tier: string         // home tier (from credentials)
-  currentTier: string  // tier map they are currently visiting
+  tier: string
+  currentTier: string
   realm: string
   gold: number
   x: number
@@ -27,16 +27,16 @@ interface ChallengeRequest {
   battleId: string
 }
 
-// ── Map constants ─────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const MAP_W = 2400
 const MAP_H = 1600
 const PLAYER_SPEED = 4
 const PLAYER_RADIUS = 18
-const CHALLENGE_RANGE = 120  // px — must be this close to challenge
+const CHALLENGE_RANGE = 120
 const BOSS_ZONE_WIDTH = 80
-const EXIT_ZONE_WIDTH = 60   // left/right portal zones
-const FADE_DURATION = 400    // ms for fade in/out
+const EXIT_ZONE_WIDTH = 60
+const FADE_DURATION = 400
 
 const TIER_NAMES = [
   'Apprentice','Initiate','Acolyte','Journeyman','Adept',
@@ -44,14 +44,7 @@ const TIER_NAMES = [
   'Master','Grandmaster','Champion','Paragon','Legend',
 ]
 
-// ── Biome config ──────────────────────────────────────────────────────────────
-
-const BIOME: Record<string, {
-  sky: [string, string]
-  ground: string
-  hill: string
-  accent: string
-}> = {
+const BIOME: Record<string, { sky: [string, string]; ground: string; hill: string; accent: string }> = {
   Apprentice:  { sky: ['#1a1a2e','#2d2a4a'], ground: '#2a2a1a', hill: '#3a3a22', accent: '#888780' },
   Initiate:    { sky: ['#1a2e1a','#2a4a2a'], ground: '#1a2e1a', hill: '#2a4a1a', accent: '#7aaa50' },
   Acolyte:     { sky: ['#1a2e20','#2a4a30'], ground: '#1a3020', hill: '#2a5030', accent: '#50cc70' },
@@ -78,12 +71,7 @@ const REALM_ICONS: Record<string, string> = {
   academia: '📚', tech: '⚡', medicine: '⚕️', creative: '🎨', law: '⚖️',
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getTierIndex(tier: string) {
-  return TIER_NAMES.indexOf(tier)
-}
-
+function getTierIndex(tier: string) { return TIER_NAMES.indexOf(tier) }
 function distXY(ax: number, ay: number, bx: number, by: number) {
   return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
 }
@@ -93,26 +81,27 @@ function distXY(ax: number, ay: number, bx: number, by: number) {
 export default function MapPage() {
   const router = useRouter()
 
-  const canvasRef      = useRef<HTMLCanvasElement>(null)
-  const channelRef     = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-  const keysRef        = useRef<Set<string>>(new Set())
-  const myPlayerRef    = useRef<MapPlayer | null>(null)
-  const playersRef     = useRef<Map<string, MapPlayer>>(new Map())
-  const animFrameRef   = useRef<number>(0)
-  const lastBroadcast  = useRef<number>(0)
-  const supabaseRef    = useRef(createClient())
-  const supabase       = supabaseRef.current
+  const canvasRef     = useRef<HTMLCanvasElement>(null)
+  const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const keysRef       = useRef<Set<string>>(new Set())
+  const myPlayerRef   = useRef<MapPlayer | null>(null)
+  const playersRef    = useRef<Map<string, MapPlayer>>(new Map())
+  const animFrameRef  = useRef<number>(0)
+  const lastBroadcast = useRef<number>(0)
+  const supabaseRef   = useRef(createClient())
+  const supabase      = supabaseRef.current
 
-  // Fade state in refs so draw loop reads without stale closure
   const fadeRef        = useRef<number>(0)
   const fadeDirRef     = useRef<'in' | 'out' | null>(null)
   const fadeStartRef   = useRef<number>(0)
   const pendingTierRef = useRef<string | null>(null)
-  const transitionToTierRef = useRef<(tier: string) => void>(() => {})
-  const drawRef              = useRef<(ts: number) => void>(() => {})
-  const joinTierChannelRef   = useRef<(tier: string, player: MapPlayer) => void>(() => {})
 
-  const [userId,         setUserId]         = useState<string | null>(null)
+  // Stable refs so draw/movement loops never have stale closures
+  const currentTierRef        = useRef<string>('')
+  const transitionToTierRef   = useRef<(tier: string) => void>(() => {})
+  const completeTierTransRef  = useRef<(tier: string) => void>(() => {})
+  const joinTierChannelRef    = useRef<(tier: string, player: MapPlayer) => void>(() => {})
+
   const [myTier,         setMyTier]         = useState<string>('')
   const [currentTier,    setCurrentTier]    = useState<string>('')
   const [myStats,        setMyStats]        = useState<{ hp: number; attack: number; defence: number } | null>(null)
@@ -123,12 +112,74 @@ export default function MapPage() {
   const [pveInvite,      setPveInvite]      = useState<{ fromName: string; battleId: string; bossName: string; bossTier: string } | null>(null)
   const [loading,        setLoading]        = useState(true)
   const [error,          setError]          = useState<string | null>(null)
-  const [transitioning,  setTransitioning]  = useState(false)
 
-  const currentTierRef = useRef<string>('')
-  const myTierRef      = useRef<string>('')
+  // Sync state → refs
   useEffect(() => { currentTierRef.current = currentTier }, [currentTier])
-  useEffect(() => { myTierRef.current = myTier }, [myTier])
+
+  // ── Key listeners — dedicated effect, never torn down ─────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
+    const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup',   onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup',   onKeyUp)
+    }
+  }, [])
+
+  // ── Movement loop — dedicated effect, never torn down ─────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const me = myPlayerRef.current
+      if (!me) return                          // not loaded yet
+      if (fadeDirRef.current !== null) return  // mid-transition, don't move
+
+      const keys = keysRef.current
+      let moved = false
+
+      if (keys.has('ArrowLeft')  || keys.has('a')) { me.x = Math.max(PLAYER_RADIUS, me.x - PLAYER_SPEED); moved = true }
+      if (keys.has('ArrowRight') || keys.has('d')) { me.x = Math.min(MAP_W - PLAYER_RADIUS, me.x + PLAYER_SPEED); moved = true }
+      if (keys.has('ArrowUp')    || keys.has('w')) { me.y = Math.max(PLAYER_RADIUS, me.y - PLAYER_SPEED); moved = true }
+      if (keys.has('ArrowDown')  || keys.has('s')) { me.y = Math.min(MAP_H - PLAYER_RADIUS, me.y + PLAYER_SPEED); moved = true }
+
+      if (!moved) return
+
+      playersRef.current.set(me.userId, { ...me })
+
+      const tierIdx    = getTierIndex(currentTierRef.current)
+      const isHomeTier = currentTierRef.current === me.tier
+
+      // Left portal → previous tier
+      if (me.x <= EXIT_ZONE_WIDTH && tierIdx > 0) {
+        transitionToTierRef.current(TIER_NAMES[tierIdx - 1])
+        return
+      }
+
+      // Right side — boss lair or next tier portal
+      if (me.x >= MAP_W - EXIT_ZONE_WIDTH) {
+        if (isHomeTier && me.x >= MAP_W - BOSS_ZONE_WIDTH) {
+          setBossPrompt(prev => prev ?? currentTierRef.current)
+        } else if (me.x < MAP_W - BOSS_ZONE_WIDTH && tierIdx < TIER_NAMES.length - 1) {
+          transitionToTierRef.current(TIER_NAMES[tierIdx + 1])
+          return
+        }
+      } else {
+        setBossPrompt(null)
+      }
+
+      // Broadcast position
+      const now = Date.now()
+      if (now - lastBroadcast.current > 100) {
+        lastBroadcast.current = now
+        channelRef.current?.send({
+          type: 'broadcast', event: 'move',
+          payload: { userId: me.userId, x: me.x, y: me.y },
+        })
+      }
+    }, 16)
+    return () => clearInterval(interval)
+  }, [])  // empty deps — runs once, reads everything via refs
 
   // ── Channel management ────────────────────────────────────────────────────
 
@@ -137,38 +188,29 @@ export default function MapPage() {
       supabase.removeChannel(channelRef.current)
       channelRef.current = null
     }
-
     const uid = player.userId
-    const channel = supabase.channel(`map:${tier}`, {
-      config: { presence: { key: uid } }
-    })
+    const channel = supabase.channel(`map:${tier}`, { config: { presence: { key: uid } } })
     channelRef.current = channel
 
-    channel.on('presence', { event: 'join' }, ({ key, newPresences }: { key: string, newPresences: MapPlayer[] }) => {
+    channel.on('presence', { event: 'join' }, ({ key, newPresences }: { key: string; newPresences: MapPlayer[] }) => {
       if (key !== uid) playersRef.current.set(key, newPresences[0] as MapPlayer)
     })
-
     channel.on('presence', { event: 'leave' }, ({ key }: { key: string }) => {
       playersRef.current.delete(key)
     })
-
-    channel.on('broadcast', { event: 'move' }, ({ payload }: { payload: { userId: string, x: number, y: number } }) => {
+    channel.on('broadcast', { event: 'move' }, ({ payload }: { payload: { userId: string; x: number; y: number } }) => {
       const existing = playersRef.current.get(payload.userId)
       if (existing) playersRef.current.set(payload.userId, { ...existing, x: payload.x, y: payload.y })
     })
-
-    channel.on('broadcast', { event: 'challenge' }, ({ payload }: { payload: { toId: string, fromId: string, fromName: string, battleId: string } }) => {
-      if (payload.toId === uid) {
+    channel.on('broadcast', { event: 'challenge' }, ({ payload }: { payload: { toId: string; fromId: string; fromName: string; battleId: string } }) => {
+      if (payload.toId === uid)
         setChallenge({ fromId: payload.fromId, fromName: payload.fromName, battleId: payload.battleId })
-      }
     })
-
-    channel.on('broadcast', { event: 'pve_invite' }, ({ payload }: { payload: { fromId: string, fromName: string, fromTier: string, battleId: string, bossName: string, bossTier: string } }) => {
+    channel.on('broadcast', { event: 'pve_invite' }, ({ payload }: { payload: { fromId: string; fromName: string; fromTier: string; battleId: string; bossName: string; bossTier: string } }) => {
       if (payload.fromId === uid) return
       if (payload.fromTier !== myPlayerRef.current?.tier) return
       setPveInvite({ fromName: payload.fromName, battleId: payload.battleId, bossName: payload.bossName, bossTier: payload.bossTier })
     })
-
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         playersRef.current.clear()
@@ -181,39 +223,31 @@ export default function MapPage() {
 
   // ── Tier transition ───────────────────────────────────────────────────────
 
-  const transitionToTier = useCallback((newTier: string) => {
-    if (fadeDirRef.current !== null) return // already fading
-    pendingTierRef.current = newTier
-    fadeDirRef.current = 'out'
-    fadeStartRef.current = performance.now()
-    setTransitioning(true)
-  }, [])
-  transitionToTierRef.current = transitionToTier
-
   const completeTierTransition = useCallback((newTier: string) => {
     const me = myPlayerRef.current
     if (!me) return
-
-    const tierIdx     = getTierIndex(newTier)
-    const prevTierIdx = getTierIndex(currentTierRef.current)
-    const comingFromLeft = tierIdx > prevTierIdx
-
+    const comingFromLeft = getTierIndex(newTier) > getTierIndex(currentTierRef.current)
     const newX = comingFromLeft ? EXIT_ZONE_WIDTH + 100 : MAP_W - EXIT_ZONE_WIDTH - 100
     const newY = MAP_H / 2 + (Math.random() - 0.5) * 300
-
-    const updatedPlayer: MapPlayer = { ...me, currentTier: newTier, x: newX, y: newY }
-    myPlayerRef.current = updatedPlayer
-    playersRef.current.set(me.userId, updatedPlayer)
-
+    const updated: MapPlayer = { ...me, currentTier: newTier, x: newX, y: newY }
+    myPlayerRef.current = updated
+    playersRef.current.set(me.userId, updated)
     currentTierRef.current = newTier
     setCurrentTier(newTier)
     setBossPrompt(null)
-
-    joinTierChannel(newTier, updatedPlayer)
-
+    joinTierChannelRef.current(newTier, updated)
     fadeDirRef.current = 'in'
     fadeStartRef.current = performance.now()
-  }, [joinTierChannel])
+  }, [])
+  completeTierTransRef.current = completeTierTransition
+
+  const transitionToTier = useCallback((newTier: string) => {
+    if (fadeDirRef.current !== null) return
+    pendingTierRef.current = newTier
+    fadeDirRef.current = 'out'
+    fadeStartRef.current = performance.now()
+  }, [])
+  transitionToTierRef.current = transitionToTier
 
   // ── Draw loop ─────────────────────────────────────────────────────────────
 
@@ -223,11 +257,11 @@ export default function MapPage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const me    = myPlayerRef.current
-    const cw    = canvas.width
-    const ch    = canvas.height
-    const tier  = currentTierRef.current || 'Apprentice'
-    const biome = BIOME[tier] ?? BIOME['Apprentice']
+    const me      = myPlayerRef.current
+    const cw      = canvas.width
+    const ch      = canvas.height
+    const tier    = currentTierRef.current || 'Apprentice'
+    const biome   = BIOME[tier] ?? BIOME['Apprentice']
     const tierIdx = getTierIndex(tier)
 
     const camX = me ? Math.max(0, Math.min(me.x - cw / 2, MAP_W - cw)) : 0
@@ -235,210 +269,140 @@ export default function MapPage() {
 
     ctx.clearRect(0, 0, cw, ch)
 
-    // ── Sky ───────────────────────────────────────────────────────────────
+    // Sky
     const skyGrad = ctx.createLinearGradient(0, 0, 0, ch * 0.62)
     skyGrad.addColorStop(0, biome.sky[0])
     skyGrad.addColorStop(1, biome.sky[1])
     ctx.fillStyle = skyGrad
     ctx.fillRect(0, 0, cw, ch * 0.62)
 
-    // Stars for Scholar+
+    // Stars (Scholar+)
     if (tierIdx >= 5) {
       for (let i = 0; i < 40; i++) {
-        const sx = ((i * 173 + tierIdx * 37) % MAP_W) - (camX * 0.1)
+        const sx = ((i * 173 + tierIdx * 37) % MAP_W) - camX * 0.1
         const sy = (i * 97 + tierIdx * 13) % (ch * 0.55)
         if (sx < 0 || sx > cw) continue
         const pulse = 0.4 + 0.4 * Math.sin(timestamp * 0.0015 + i)
-        ctx.save()
-        ctx.globalAlpha = pulse
-        ctx.fillStyle = '#fff'
+        ctx.save(); ctx.globalAlpha = pulse; ctx.fillStyle = '#fff'
         ctx.beginPath(); ctx.arc(sx, sy, 1.2, 0, Math.PI * 2); ctx.fill()
         ctx.restore()
       }
     }
 
-    // ── Ground ────────────────────────────────────────────────────────────
+    // Ground
     const groundGrad = ctx.createLinearGradient(0, ch * 0.62, 0, ch)
     groundGrad.addColorStop(0, biome.ground)
     groundGrad.addColorStop(1, '#000')
     ctx.fillStyle = groundGrad
     ctx.fillRect(0, ch * 0.62, cw, ch * 0.38)
 
-    // ── Parallax hills ────────────────────────────────────────────────────
+    // Parallax hills
     for (let layer = 0; layer < 3; layer++) {
-      const hillY   = ch * (0.60 + layer * 0.035)
-      const freq    = 0.0006 + layer * 0.0003
-      const amp     = 50 - layer * 12
+      const hillY    = ch * (0.60 + layer * 0.035)
+      const freq     = 0.0006 + layer * 0.0003
+      const amp      = 50 - layer * 12
       const parallax = camX * (0.2 + layer * 0.15)
-
       ctx.save()
       ctx.globalAlpha = 0.5 + layer * 0.25
       ctx.fillStyle = biome.hill
-      ctx.beginPath()
-      ctx.moveTo(0, ch)
-      ctx.lineTo(0, hillY)
+      ctx.beginPath(); ctx.moveTo(0, ch); ctx.lineTo(0, hillY)
       for (let x = 0; x <= cw; x += 4) {
         const wx = x + parallax
         ctx.lineTo(x, hillY + Math.sin(wx * freq) * amp + Math.sin(wx * freq * 2.1) * (amp * 0.3))
       }
-      ctx.lineTo(cw, ch)
-      ctx.closePath()
-      ctx.fill()
+      ctx.lineTo(cw, ch); ctx.closePath(); ctx.fill()
       ctx.restore()
     }
 
-    // Horizon glow line
-    ctx.save()
-    ctx.globalAlpha = 0.18
-    ctx.strokeStyle = biome.accent
-    ctx.lineWidth = 1.5
-    ctx.shadowColor = biome.accent
-    ctx.shadowBlur = 8
+    // Horizon glow
+    ctx.save(); ctx.globalAlpha = 0.18; ctx.strokeStyle = biome.accent
+    ctx.lineWidth = 1.5; ctx.shadowColor = biome.accent; ctx.shadowBlur = 8
     ctx.beginPath(); ctx.moveTo(0, ch * 0.62); ctx.lineTo(cw, ch * 0.62); ctx.stroke()
     ctx.restore()
 
-    // ── Left portal (prev tier) ───────────────────────────────────────────
+    // ── Left portal ───────────────────────────────────────────────────────
     if (tierIdx > 0) {
-      const prevTier  = TIER_NAMES[tierIdx - 1]
-      const prevBiome = BIOME[prevTier]
+      const prevBiome = BIOME[TIER_NAMES[tierIdx - 1]]
       const px = EXIT_ZONE_WIDTH / 2 - camX
-      const py = MAP_H * 0.62 - camY  // sits on the ground line
+      const py = MAP_H * 0.62 - camY
       const pulse = 0.7 + 0.3 * Math.sin(timestamp * 0.002)
-
       if (px > -80 && px < cw + 80) {
-        // Glow pool on ground
         const pg = ctx.createRadialGradient(px, py, 0, px, py, 70)
-        pg.addColorStop(0, prevBiome.accent + '44')
-        pg.addColorStop(1, 'transparent')
+        pg.addColorStop(0, prevBiome.accent + '44'); pg.addColorStop(1, 'transparent')
         ctx.fillStyle = pg; ctx.fillRect(px - 70, py - 70, 140, 140)
-
-        // Arch
         ctx.save()
-        ctx.strokeStyle = prevBiome.accent
-        ctx.lineWidth = 3
-        ctx.shadowColor = prevBiome.accent
-        ctx.shadowBlur = 14 * pulse
-        ctx.beginPath()
-        ctx.arc(px, py, 38, Math.PI, 0)
-        ctx.lineTo(px + 38, py + 32)
-        ctx.moveTo(px - 38, py + 32)
-        ctx.lineTo(px - 38, py)
+        ctx.strokeStyle = prevBiome.accent; ctx.lineWidth = 3
+        ctx.shadowColor = prevBiome.accent; ctx.shadowBlur = 14 * pulse
+        ctx.beginPath(); ctx.arc(px, py, 38, Math.PI, 0)
+        ctx.lineTo(px + 38, py + 32); ctx.moveTo(px - 38, py + 32); ctx.lineTo(px - 38, py)
         ctx.stroke()
-
-        // Inner shimmer
-        ctx.globalAlpha = 0.25 * pulse
-        ctx.fillStyle = prevBiome.accent
-        ctx.beginPath()
-        ctx.arc(px, py, 30, Math.PI, 0)
-        ctx.lineTo(px + 30, py + 26)
-        ctx.lineTo(px - 30, py + 26)
-        ctx.closePath()
-        ctx.fill()
+        ctx.globalAlpha = 0.25 * pulse; ctx.fillStyle = prevBiome.accent
+        ctx.beginPath(); ctx.arc(px, py, 30, Math.PI, 0)
+        ctx.lineTo(px + 30, py + 26); ctx.lineTo(px - 30, py + 26); ctx.closePath(); ctx.fill()
         ctx.restore()
-
-        // Label
-        ctx.save()
-        ctx.font = '600 9px "Cinzel", serif'
-        ctx.textAlign = 'center'
-        ctx.fillStyle = prevBiome.accent
-        ctx.globalAlpha = 0.85
-        ctx.fillText('← ' + prevTier.toUpperCase(), px, py + 50)
+        ctx.save(); ctx.font = '600 9px "Cinzel", serif'; ctx.textAlign = 'center'
+        ctx.fillStyle = prevBiome.accent; ctx.globalAlpha = 0.85
+        ctx.fillText('← ' + TIER_NAMES[tierIdx - 1].toUpperCase(), px, py + 50)
         ctx.restore()
       }
     }
 
-    // ── Right portal (next tier) ──────────────────────────────────────────
+    // ── Right portal ──────────────────────────────────────────────────────
     if (tierIdx < TIER_NAMES.length - 1) {
-      const nextTier  = TIER_NAMES[tierIdx + 1]
-      const nextBiome = BIOME[nextTier]
+      const nextBiome = BIOME[TIER_NAMES[tierIdx + 1]]
       const px = MAP_W - EXIT_ZONE_WIDTH / 2 - camX
       const py = MAP_H * 0.62 - camY
       const pulse = 0.7 + 0.3 * Math.sin(timestamp * 0.002 + 1.5)
-
       if (px > -80 && px < cw + 80) {
         const pg = ctx.createRadialGradient(px, py, 0, px, py, 70)
-        pg.addColorStop(0, nextBiome.accent + '44')
-        pg.addColorStop(1, 'transparent')
+        pg.addColorStop(0, nextBiome.accent + '44'); pg.addColorStop(1, 'transparent')
         ctx.fillStyle = pg; ctx.fillRect(px - 70, py - 70, 140, 140)
-
         ctx.save()
-        ctx.strokeStyle = nextBiome.accent
-        ctx.lineWidth = 3
-        ctx.shadowColor = nextBiome.accent
-        ctx.shadowBlur = 14 * pulse
-        ctx.beginPath()
-        ctx.arc(px, py, 38, Math.PI, 0)
-        ctx.lineTo(px + 38, py + 32)
-        ctx.moveTo(px - 38, py + 32)
-        ctx.lineTo(px - 38, py)
+        ctx.strokeStyle = nextBiome.accent; ctx.lineWidth = 3
+        ctx.shadowColor = nextBiome.accent; ctx.shadowBlur = 14 * pulse
+        ctx.beginPath(); ctx.arc(px, py, 38, Math.PI, 0)
+        ctx.lineTo(px + 38, py + 32); ctx.moveTo(px - 38, py + 32); ctx.lineTo(px - 38, py)
         ctx.stroke()
-
-        ctx.globalAlpha = 0.25 * pulse
-        ctx.fillStyle = nextBiome.accent
-        ctx.beginPath()
-        ctx.arc(px, py, 30, Math.PI, 0)
-        ctx.lineTo(px + 30, py + 26)
-        ctx.lineTo(px - 30, py + 26)
-        ctx.closePath()
-        ctx.fill()
+        ctx.globalAlpha = 0.25 * pulse; ctx.fillStyle = nextBiome.accent
+        ctx.beginPath(); ctx.arc(px, py, 30, Math.PI, 0)
+        ctx.lineTo(px + 30, py + 26); ctx.lineTo(px - 30, py + 26); ctx.closePath(); ctx.fill()
         ctx.restore()
-
-        ctx.save()
-        ctx.font = '600 9px "Cinzel", serif'
-        ctx.textAlign = 'center'
-        ctx.fillStyle = nextBiome.accent
-        ctx.globalAlpha = 0.85
-        ctx.fillText(nextTier.toUpperCase() + ' →', px, py + 50)
+        ctx.save(); ctx.font = '600 9px "Cinzel", serif'; ctx.textAlign = 'center'
+        ctx.fillStyle = nextBiome.accent; ctx.globalAlpha = 0.85
+        ctx.fillText(TIER_NAMES[tierIdx + 1].toUpperCase() + ' →', px, py + 50)
         ctx.restore()
       }
     }
 
-    // ── Boss lair (far right) ─────────────────────────────────────────────
+    // ── Boss lair ─────────────────────────────────────────────────────────
     const boss = BOSSES[tier]
     if (boss) {
       const lairX = MAP_W - BOSS_ZONE_WIDTH / 2 - camX
       const lairY = MAP_H * 0.62 - camY
       const pulse = 0.6 + 0.4 * Math.sin(timestamp * 0.003)
-
       if (lairX > -80 && lairX < cw + 80) {
-        // Glow
         const lg = ctx.createRadialGradient(lairX, lairY, 0, lairX, lairY, 60)
         lg.addColorStop(0, `rgba(163,45,45,${0.3 * pulse})`); lg.addColorStop(1, 'transparent')
         ctx.fillStyle = lg; ctx.fillRect(lairX - 60, lairY - 60, 120, 120)
-
-        // Cave
         ctx.save()
         ctx.fillStyle = '#050205'
         ctx.strokeStyle = `rgba(200,60,60,${0.5 + 0.3 * pulse})`
-        ctx.lineWidth = 2.5
-        ctx.shadowColor = '#cc2222'; ctx.shadowBlur = 14 * pulse
-        ctx.beginPath()
-        ctx.arc(lairX, lairY, 28, Math.PI, 0)
-        ctx.lineTo(lairX + 28, lairY + 22)
-        ctx.lineTo(lairX - 28, lairY + 22)
+        ctx.lineWidth = 2.5; ctx.shadowColor = '#cc2222'; ctx.shadowBlur = 14 * pulse
+        ctx.beginPath(); ctx.arc(lairX, lairY, 28, Math.PI, 0)
+        ctx.lineTo(lairX + 28, lairY + 22); ctx.lineTo(lairX - 28, lairY + 22)
         ctx.closePath(); ctx.fill(); ctx.stroke()
         ctx.restore()
-
-        // Teeth
         ctx.fillStyle = '#050205'
         for (let i = 0; i < 5; i++) {
-          const tx = lairX - 16 + i * 8
-          const ty = lairY - 18 + (i % 2) * 5
+          const tx = lairX - 16 + i * 8; const ty = lairY - 18 + (i % 2) * 5
           ctx.beginPath(); ctx.moveTo(tx - 3, ty); ctx.lineTo(tx + 3, ty); ctx.lineTo(tx, ty + 9); ctx.closePath(); ctx.fill()
         }
-
-        // Eyes
-        ctx.save()
-        ctx.globalAlpha = 0.65 + 0.35 * pulse
+        ctx.save(); ctx.globalAlpha = 0.65 + 0.35 * pulse
         ctx.fillStyle = '#ff2222'; ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 6
         ctx.beginPath(); ctx.arc(lairX - 7, lairY - 3, 3, 0, Math.PI * 2); ctx.fill()
         ctx.beginPath(); ctx.arc(lairX + 7, lairY - 3, 3, 0, Math.PI * 2); ctx.fill()
         ctx.restore()
-
-        // Label
-        ctx.save()
-        ctx.font = '500 10px "Cinzel", serif'
-        ctx.textAlign = 'center'
+        ctx.save(); ctx.font = '500 10px "Cinzel", serif'; ctx.textAlign = 'center'
         ctx.fillStyle = `rgba(240,149,149,${0.55 + 0.3 * pulse})`
         ctx.fillText(`${boss.icon} ${boss.name}`, lairX, lairY + 40)
         ctx.restore()
@@ -459,7 +423,6 @@ export default function MapPage() {
         ? distXY(myPlayerRef.current.x, myPlayerRef.current.y, player.x, player.y) < CHALLENGE_RANGE
         : false
 
-      // Bob
       const bobPhase = (player.x * 0.3 + player.y * 0.7) % (Math.PI * 2)
       const bob = Math.sin(timestamp * 0.003 + bobPhase) * 3
       const bx = sx; const by = sy + bob; const R = PLAYER_RADIUS
@@ -480,8 +443,7 @@ export default function MapPage() {
       }
 
       // Blob body
-      ctx.save()
-      ctx.fillStyle = blobColor; ctx.shadowColor = blobColor; ctx.shadowBlur = isMe ? 12 : 4
+      ctx.save(); ctx.fillStyle = blobColor; ctx.shadowColor = blobColor; ctx.shadowBlur = isMe ? 12 : 4
       ctx.beginPath(); ctx.ellipse(bx, by + 2, R, R * 0.92, 0, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
 
@@ -539,15 +501,12 @@ export default function MapPage() {
         fadeDirRef.current = null
         const target = pendingTierRef.current
         pendingTierRef.current = null
-        completeTierTransition(target)
+        completeTierTransRef.current(target)
       }
     } else if (fadeDirRef.current === 'in') {
       const elapsed = nowPerf - fadeStartRef.current
       fadeRef.current = Math.max(0, 1 - elapsed / FADE_DURATION)
-      if (fadeRef.current <= 0) {
-        fadeDirRef.current = null
-        setTransitioning(false)
-      }
+      if (fadeRef.current <= 0) fadeDirRef.current = null
     }
 
     if (fadeRef.current > 0) {
@@ -555,74 +514,17 @@ export default function MapPage() {
       ctx.fillRect(0, 0, cw, ch)
     }
 
-    // ── HUD ───────────────────────────────────────────────────────────────
+    // HUD — tier name
     if (fadeRef.current < 0.8) {
-      ctx.save()
-      ctx.globalAlpha = 1 - fadeRef.current
-      ctx.font = '600 11px "Cinzel", serif'
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+      ctx.save(); ctx.globalAlpha = 1 - fadeRef.current
+      ctx.font = '600 11px "Cinzel", serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'
       ctx.fillStyle = biome.accent; ctx.shadowColor = biome.accent; ctx.shadowBlur = 6
       ctx.fillText(tier.toUpperCase(), 14, 14)
       ctx.restore()
     }
 
-    animFrameRef.current = requestAnimationFrame((ts) => drawRef.current(ts))
-  }, [completeTierTransition])
-  drawRef.current = draw
-
-  // ── Movement loop ─────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const moveInterval = setInterval(() => {
-      const me = myPlayerRef.current
-      if (!me || fadeDirRef.current !== null) return
-
-      let moved = false
-      const keys = keysRef.current
-
-      if (keys.has('ArrowLeft')  || keys.has('a')) { me.x = Math.max(PLAYER_RADIUS, me.x - PLAYER_SPEED); moved = true }
-      if (keys.has('ArrowRight') || keys.has('d')) { me.x = Math.min(MAP_W - PLAYER_RADIUS, me.x + PLAYER_SPEED); moved = true }
-      if (keys.has('ArrowUp')    || keys.has('w')) { me.y = Math.max(PLAYER_RADIUS, me.y - PLAYER_SPEED); moved = true }
-      if (keys.has('ArrowDown')  || keys.has('s')) { me.y = Math.min(MAP_H - PLAYER_RADIUS, me.y + PLAYER_SPEED); moved = true }
-
-      if (moved) {
-        playersRef.current.set(me.userId, { ...me })
-
-        const tierIdx   = getTierIndex(currentTierRef.current)
-        const isHomeTier = currentTierRef.current === me.tier
-
-        // Left portal
-        if (me.x <= EXIT_ZONE_WIDTH && tierIdx > 0) {
-          transitionToTierRef.current(TIER_NAMES[tierIdx - 1])
-          return
-        }
-
-        // Right side — boss lair OR next tier portal
-        if (me.x >= MAP_W - EXIT_ZONE_WIDTH) {
-          if (isHomeTier && me.x >= MAP_W - BOSS_ZONE_WIDTH) {
-            setBossPrompt(prev => prev ?? currentTierRef.current)
-          } else if (me.x >= MAP_W - EXIT_ZONE_WIDTH && me.x < MAP_W - BOSS_ZONE_WIDTH && tierIdx < TIER_NAMES.length - 1) {
-            transitionToTierRef.current(TIER_NAMES[tierIdx + 1])
-            return
-          }
-        } else {
-          setBossPrompt(null)
-        }
-
-        // Broadcast
-        const now = Date.now()
-        if (now - lastBroadcast.current > 100) {
-          lastBroadcast.current = now
-          channelRef.current?.send({
-            type: 'broadcast', event: 'move',
-            payload: { userId: me.userId, x: me.x, y: me.y },
-          })
-        }
-      }
-    }, 16)
-
-    return () => clearInterval(moveInterval)
-  }, [])
+    animFrameRef.current = requestAnimationFrame(draw)
+  }, [])  // empty deps — reads everything via refs
 
   // ── Canvas click → challenge ──────────────────────────────────────────────
 
@@ -631,11 +533,11 @@ export default function MapPage() {
     const me     = myPlayerRef.current
     if (!canvas || !me || fadeDirRef.current !== null) return
 
-    const rect = canvas.getBoundingClientRect()
+    const rect   = canvas.getBoundingClientRect()
     const clickX = e.clientX - rect.left
     const clickY = e.clientY - rect.top
-    const camX = Math.max(0, Math.min(me.x - canvas.width / 2, MAP_W - canvas.width))
-    const camY = Math.max(0, Math.min(me.y - canvas.height / 2, MAP_H - canvas.height))
+    const camX   = Math.max(0, Math.min(me.x - canvas.width / 2, MAP_W - canvas.width))
+    const camY   = Math.max(0, Math.min(me.y - canvas.height / 2, MAP_H - canvas.height))
 
     let hit: MapPlayer | null = null
     playersRef.current.forEach(player => {
@@ -645,7 +547,6 @@ export default function MapPage() {
       const worldDist  = distXY(me.x, me.y, player.x, player.y)
       if (screenDist < 28 && worldDist < CHALLENGE_RANGE) hit = player
     })
-
     if (hit) setSelectedPlayer(hit)
   }
 
@@ -656,19 +557,16 @@ export default function MapPage() {
     if (!isSameTier(myTier, target.tier)) {
       setError(`Cannot challenge ${target.name} — different tier (${target.tier})`); return
     }
-
     const res  = await fetch('/api/battle/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ opponent_id: target.userId }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error); return }
-
     channelRef.current?.send({
       type: 'broadcast', event: 'challenge',
       payload: { toId: target.userId, fromId: myPlayerRef.current?.userId, fromName: myPlayerRef.current?.name ?? 'Unknown', battleId: data.battle_id },
     })
-
     router.push(`/battle/prep?battle_id=${data.battle_id}&opponent_name=${encodeURIComponent(target.name)}&opponent_power=${target.totalPower}`)
   }
 
@@ -677,16 +575,13 @@ export default function MapPage() {
   async function enterBossLair() {
     if (!bossPrompt || !myStats) return
     setEnteringBoss(true)
-
     const res  = await fetch('/api/pve/create', { method: 'POST' })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Failed to enter boss lair'); setEnteringBoss(false); return }
-
     channelRef.current?.send({
       type: 'broadcast', event: 'pve_invite',
       payload: { fromId: myPlayerRef.current?.userId, fromName: myPlayerRef.current?.name ?? 'Unknown', fromTier: myTier, battleId: data.battle_id, bossName: data.boss_name, bossTier: data.boss_tier },
     })
-
     router.push(`/pve/prep?battle_id=${data.battle_id}&boss_tier=${encodeURIComponent(data.boss_tier)}`)
   }
 
@@ -697,30 +592,12 @@ export default function MapPage() {
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
-  // ── Key listeners (own effect so they're never torn down by async races) ──
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
-    const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup',   onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup',   onKeyUp)
-    }
-  }, [])
-
-  // ── Init (guarded against strict-mode double-mount) ──
-  useEffect(() => {
-    let ignore = false
-
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (ignore) return
       if (!user) { router.push('/auth'); return }
-      setUserId(user.id)
 
       const res  = await fetch('/api/character/get')
-      if (ignore) return
       const data = await res.json()
       if (!data.character) { router.push('/'); return }
 
@@ -729,7 +606,6 @@ export default function MapPage() {
       setMyTier(tier)
       setCurrentTier(tier)
       currentTierRef.current = tier
-      myTierRef.current = tier
 
       const primaryRealm = Object.keys(char.realms ?? {})[0] ?? 'academia'
       setMyStats({ hp: char.stats_hp ?? 100, attack: char.stats_attack ?? 50, defence: char.stats_defence ?? 50 })
@@ -749,18 +625,16 @@ export default function MapPage() {
       setLoading(false)
 
       joinTierChannelRef.current(tier, myPlayer)
-      animFrameRef.current = requestAnimationFrame((ts) => drawRef.current(ts))
+      animFrameRef.current = requestAnimationFrame(draw)
     }
 
     init()
 
     return () => {
-      ignore = true
       cancelAnimationFrame(animFrameRef.current)
       if (channelRef.current) { supabase.removeChannel(channelRef.current); channelRef.current = null }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [draw])  // draw is stable (empty deps useCallback)
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -799,15 +673,11 @@ export default function MapPage() {
             width={typeof window !== 'undefined' ? Math.min(window.innerWidth, 1400) : 1200}
             height={typeof window !== 'undefined' ? Math.min(window.innerHeight - 60, 800) : 700}
             onClick={handleCanvasClick}
-            style={{ display: 'block', cursor: fadeDirRef.current !== null ? 'default' : 'crosshair' }}
+            style={{ display: 'block', cursor: 'crosshair' }}
           />
-
-          {/* Controls hint */}
           <div style={{ position: 'absolute', bottom: '12px', left: '12px', fontFamily: '"Crimson Text", serif', color: 'rgba(155,114,207,0.45)', fontSize: '0.78rem' }}>
-            Move: WASD · Walk to map edge to travel between tiers · Get close to a player to challenge · Walk into the lair to fight the boss
+            Move: WASD · Walk to map edge to travel · Get close to a player to challenge · Walk into the lair to fight the boss
           </div>
-
-          {/* Tier badges */}
           <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
             {currentTier !== myTier && (
               <div style={{ padding: '0.3rem 0.8rem', background: 'rgba(10,10,15,0.8)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '999px', fontSize: '0.6rem', letterSpacing: '0.1em', color: '#5a4c70' }}>
