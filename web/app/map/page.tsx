@@ -35,7 +35,8 @@ const PLAYER_SPEED = 4
 const PLAYER_RADIUS = 18
 const CHALLENGE_RANGE = 120
 const BOSS_ZONE_WIDTH = 80
-const EXIT_ZONE_WIDTH = 60
+const EXIT_ZONE_WIDTH = 80   // left AND right portal zones
+const BOSS_ZONE_START = MAP_W - EXIT_ZONE_WIDTH - BOSS_ZONE_WIDTH - 40  // boss sits left of right portal
 const FADE_DURATION = 400
 
 const TIER_NAMES = [
@@ -156,16 +157,17 @@ export default function MapPage() {
         return
       }
 
-      // Right side — boss lair or next tier portal
-      if (me.x >= MAP_W - EXIT_ZONE_WIDTH) {
-        if (isHomeTier && me.x >= MAP_W - BOSS_ZONE_WIDTH) {
-          setBossPrompt(prev => prev ?? currentTierRef.current)
-        } else if (me.x < MAP_W - BOSS_ZONE_WIDTH && tierIdx < TIER_NAMES.length - 1) {
-          transitionToTierRef.current(TIER_NAMES[tierIdx + 1])
-          return
-        }
+      // Boss lair — sits in the middle-right of the map, before the exit portal
+      if (isHomeTier && me.x >= BOSS_ZONE_START && me.x < MAP_W - EXIT_ZONE_WIDTH) {
+        setBossPrompt(prev => prev ?? currentTierRef.current)
       } else {
         setBossPrompt(null)
+      }
+
+      // Right portal → next tier
+      if (me.x >= MAP_W - EXIT_ZONE_WIDTH && tierIdx < TIER_NAMES.length - 1) {
+        transitionToTierRef.current(TIER_NAMES[tierIdx + 1])
+        return
       }
 
       // Broadcast position
@@ -377,7 +379,7 @@ export default function MapPage() {
     // ── Boss lair ─────────────────────────────────────────────────────────
     const boss = BOSSES[tier]
     if (boss) {
-      const lairX = MAP_W - BOSS_ZONE_WIDTH / 2 - camX
+      const lairX = BOSS_ZONE_START + BOSS_ZONE_WIDTH / 2 - camX
       const lairY = MAP_H * 0.62 - camY
       const pulse = 0.6 + 0.4 * Math.sin(timestamp * 0.003)
       if (lairX > -80 && lairX < cw + 80) {
