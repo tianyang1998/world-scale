@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { calcInsuranceRefund } from '@/lib/economy'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Fetch both players' gold
     const { data: players } = await supabase
       .from('characters')
-      .select('user_id, gold')
+      .select('user_id, gold, active_insurance')
       .in('user_id', [winner_id, loser_id])
 
     if (!players || players.length < 2) {
@@ -48,25 +49,42 @@ export async function POST(request: NextRequest) {
 
     const actualTransfer = Math.min(gold_transferred, loser.gold) // can't transfer more than loser has
 
+    // Calculate insurance refund for loser
+    let insuranceRefund = 0
+    if (loser.active_insurance) {
+      insuranceRefund = calcInsuranceRefund(actualTransfer, loser.active_insurance)
+    }
+
+    const loserNetLoss = actualTransfer - insuranceRefund
+
     // Update winner gold
     await supabase
       .from('characters')
       .update({ gold: winner.gold + actualTransfer })
       .eq('user_id', winner_id)
 
-    // Update loser gold
+    // Update loser gold and clear insurance (consumed win or lose)
     await supabase
       .from('characters')
-      .update({ gold: Math.max(0, loser.gold - actualTransfer) })
+      .update({
+        gold: Math.max(0, loser.gold - loserNetLoss),
+        active_insurance: null,
+      })
       .eq('user_id', loser_id)
+
+    // Also clear winner's insurance if they had one (consumed on match entry)
+    await supabase
+      .from('characters')
+      .update({ active_insurance: null })
+      .eq('user_id', winner_id)
 
     // Mark battle as complete
     await supabase
       .from('battles')
-      .update({ winner_id, gold_transferred: actualTransfer })
+      .update({ winner_id, gold_transferred: actualTransfer, insurance_refund: insuranceRefund })
       .eq('id', battle_id)
 
-    return NextResponse.json({ success: true, gold_transferred: actualTransfer })
+    return NextResponse.json({ success: true, gold_transferred: actualTransfer, insurance_refund: insuranceRefund })
 
   } catch (err) {
     console.error('/api/battle/end error:', err)
