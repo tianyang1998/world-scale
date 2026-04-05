@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase-client'
 import { getTierStyle } from '@/lib/types'
 import { REALM_SKILLS } from '@/lib/battle'
 import { BOSSES } from '@/lib/boss'
+import { BROADCAST_TIERS, BroadcastTier } from '@/lib/economy'
 
 interface CharacterData {
   name: string
@@ -30,6 +31,7 @@ function PvEPrepInner() {
   const boss = BOSSES[bossTier]
 
   const [selectedRealm, setSelectedRealm] = useState<string>('')
+  const [selectedBroadcast, setSelectedBroadcast] = useState<BroadcastTier>(BROADCAST_TIERS[0])
 
   useEffect(() => {
     async function load() {
@@ -76,8 +78,20 @@ function PvEPrepInner() {
     }
   }
 
-  function handleEnterBoss() {
+  async function handleEnterBoss() {
     if (!character || !battleId) return
+
+    // Apply broadcast upgrade if selected
+    if (selectedBroadcast.cost > 0) {
+      const res = await fetch('/api/pve/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ battle_id: battleId, broadcast_tier: selectedBroadcast.id }),
+      })
+      const data = await res.json()
+      if (!data.success) return // failed to purchase, stay on page
+    }
+
     router.push(
       `/pve/${battleId}?boss_tier=${encodeURIComponent(bossTier)}&hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
     )
@@ -198,6 +212,36 @@ function PvEPrepInner() {
                   <span style={{ fontFamily: '"Crimson Text", serif', fontSize: '0.85rem', color: '#4a3860', marginLeft: '8px' }}>{s.desc}</span>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Broadcast upgrade picker */}
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4a3860' }}>Broadcast Reach</p>
+          <p style={{ margin: '0 0 1rem', fontFamily: '"Crimson Text", serif', color: '#6b5c80', fontSize: '0.8rem' }}>
+            Wider broadcasts attract more players to your battle
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {BROADCAST_TIERS.map(tier => (
+              <button
+                key={tier.id}
+                onClick={() => setSelectedBroadcast(tier)}
+                disabled={character!.gold < tier.cost}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.6rem 0.8rem',
+                  background: selectedBroadcast.id === tier.id ? 'rgba(155,114,207,0.15)' : 'transparent',
+                  border: `1px solid ${selectedBroadcast.id === tier.id ? 'rgba(155,114,207,0.4)' : 'rgba(155,114,207,0.1)'}`,
+                  borderRadius: '8px', cursor: character!.gold >= tier.cost ? 'pointer' : 'not-allowed',
+                  color: character!.gold >= tier.cost ? '#e8e0f0' : '#3a2e50',
+                  fontFamily: '"Crimson Text", serif', fontSize: '0.85rem',
+                  opacity: character!.gold >= tier.cost ? 1 : 0.5,
+                }}
+              >
+                <span>{tier.name} {tier.cost > 0 && <span style={{ color: '#BA7517' }}>({tier.cost}g)</span>}</span>
+                <span style={{ color: '#6b5c80', fontSize: '0.8rem' }}>{tier.desc}</span>
+              </button>
             ))}
           </div>
         </div>
