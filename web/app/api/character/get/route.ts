@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     // Fetch the user's character — include name
     const { data: character, error } = await supabase
       .from('characters')
-      .select('name, realms, total_power, updated_at')
+      .select('name, realms, total_power, gold, equipped_title, equipped_border, owned_cosmetics, updated_at')
       .eq('user_id', user.id)
       .single()
 
