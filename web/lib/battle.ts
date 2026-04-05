@@ -132,10 +132,12 @@ export interface BattleEvent {
 }
 
 // ── Gold reward ────────────────────────────────────────────────────────────────
-export const GOLD_TRANSFER_PERCENT = 0.20; // winner takes 20% of loser's gold
+export const GOLD_TRANSFER_PERCENT = 0.10; // winner takes 10% of loser's gold
 
 export function calcGoldTransfer(loserGold: number): number {
-  return Math.max(1, Math.floor(loserGold * GOLD_TRANSFER_PERCENT));
+  if (loserGold < 50) return loserGold; // lose all remaining if below minimum
+  const raw = Math.floor(loserGold * GOLD_TRANSFER_PERCENT);
+  return Math.max(50, Math.min(500, raw));
 }
 
 // ── Tier check — players must be in the same tier to battle ───────────────────
@@ -144,7 +146,7 @@ export function isSameTier(tier1: string, tier2: string): boolean {
 }
 
 // ── Starting gold on signup ───────────────────────────────────────────────────
-export const BASE_GOLD = 1000;
+export const BASE_GOLD = 500;
 
 // ── Bonus gold for saving realm scores ───────────────────────────────────────
 // Each realm saved gives a bonus proportional to its power contribution
