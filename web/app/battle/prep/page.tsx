@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { getTierStyle } from '@/lib/types'
 import { REALM_SKILLS } from '@/lib/battle'
+import { INSURANCE_TIERS, InsuranceTier } from '@/lib/economy'
 
 interface CharacterData {
   name: string
@@ -28,6 +29,9 @@ function PrepPageInner() {
   const [selectedRealm, setSelectedRealm] = useState<string>('')
 
   const supabase = createClient()
+
+  const [selectedInsurance, setSelectedInsurance] = useState<InsuranceTier>(INSURANCE_TIERS[0])
+  const [buyingInsurance, setBuyingInsurance] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -79,6 +83,25 @@ function PrepPageInner() {
     router.push(
       `/battle/${battleId}?hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
     )
+  }
+
+  async function handleBuyInsurance() {
+    if (selectedInsurance.id === 'none') return
+    if (!character || character.gold < selectedInsurance.cost) return
+    setBuyingInsurance(true)
+    try {
+      const res = await fetch('/api/economy/buy-insurance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ insurance_id: selectedInsurance.id }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setCharacter({ ...character, gold: data.gold })
+      }
+    } finally {
+      setBuyingInsurance(false)
+    }
   }
 
   if (loading || !character) {
@@ -192,6 +215,45 @@ function PrepPageInner() {
           <div style={{ fontFamily: '"Crimson Text", serif', color: '#BA7517', fontSize: '0.95rem' }}>
             💰 {character.gold?.toLocaleString() ?? 0} gold at stake (20% on loss)
           </div>
+        </div>
+
+        {/* Insurance picker */}
+        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(155,114,207,0.15)', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <p style={{ margin: '0 0 1rem', fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4a3860' }}>Battle Insurance</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {INSURANCE_TIERS.map(tier => (
+              <button
+                key={tier.id}
+                onClick={() => setSelectedInsurance(tier)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.6rem 0.8rem',
+                  background: selectedInsurance.id === tier.id ? 'rgba(155,114,207,0.15)' : 'transparent',
+                  border: `1px solid ${selectedInsurance.id === tier.id ? 'rgba(155,114,207,0.4)' : 'rgba(155,114,207,0.1)'}`,
+                  borderRadius: '8px', cursor: 'pointer', color: '#e8e0f0',
+                  fontFamily: '"Crimson Text", serif', fontSize: '0.85rem',
+                }}
+              >
+                <span>{tier.name} {tier.cost > 0 && <span style={{ color: '#BA7517' }}>({tier.cost}g)</span>}</span>
+                <span style={{ color: '#6b5c80', fontSize: '0.8rem' }}>{tier.desc}</span>
+              </button>
+            ))}
+          </div>
+          {selectedInsurance.id !== 'none' && (
+            <button
+              onClick={handleBuyInsurance}
+              disabled={buyingInsurance || !character || character.gold < selectedInsurance.cost}
+              style={{
+                width: '100%', marginTop: '0.75rem', padding: '0.6rem',
+                background: 'rgba(186,117,23,0.2)', border: '1px solid rgba(186,117,23,0.4)',
+                borderRadius: '8px', color: '#ffcc44',
+                fontFamily: '"Cinzel", serif', fontSize: '0.7rem', letterSpacing: '0.1em',
+                textTransform: 'uppercase', cursor: 'pointer',
+              }}
+            >
+              {buyingInsurance ? 'Purchasing...' : `Buy ${selectedInsurance.name} Insurance`}
+            </button>
+          )}
         </div>
 
         {/* Enter battle button */}
