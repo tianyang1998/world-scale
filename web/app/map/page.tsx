@@ -109,7 +109,14 @@ export default function MapPage() {
 
   // ── Key listeners — dedicated effect, never torn down ─────────────────────
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.key)
+    const onKeyDown = (e: KeyboardEvent) => {
+      keysRef.current.add(e.key)
+      if (e.key === 'e' || e.key === 'E') {
+        if (nearStoreRef.current) {
+          router.push('/store')
+        }
+      }
+    }
     const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.key)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup',   onKeyUp)
@@ -117,7 +124,7 @@ export default function MapPage() {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup',   onKeyUp)
     }
-  }, [])
+  }, [router])
 
   // ── Movement loop — dedicated effect, never torn down ─────────────────────
   useEffect(() => {

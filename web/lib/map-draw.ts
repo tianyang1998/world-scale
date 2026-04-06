@@ -794,6 +794,6 @@ export function drawStoreTooltip(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = '#ffcc44'
-  ctx.fillText('Coming Soon...', sx, sy + 1)
+  ctx.fillText('Press E to enter', sx, sy + 1)
   ctx.restore()
 }
