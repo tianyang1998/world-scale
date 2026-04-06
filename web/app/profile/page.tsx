@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { getTierStyle } from '@/lib/types'
+import { getCosmetic } from '@/lib/economy'
 
 interface RealmScore {
   power: number
@@ -21,6 +22,9 @@ interface Character {
   realms: Record<string, RealmScore>
   total_power: number
   updated_at: string
+  gold?: number
+  equipped_title?: string | null
+  equipped_border?: string | null
 }
 
 const STAT_LABELS: Record<string, string> = {
@@ -69,6 +73,18 @@ export default function ProfilePage() {
   }
 
   const tierStyle = character ? getTierStyle(character.total_power) : null
+
+  function getBorderColor(borderId: string): string {
+    const colors: Record<string, string> = {
+      border_academia: '#378ADD',
+      border_tech: '#639922',
+      border_medicine: '#E24B4A',
+      border_creative: '#7F77DD',
+      border_law: '#BA7517',
+      border_gilded: '#FFD700',
+    }
+    return colors[borderId] ?? (tierStyle?.color ?? '#9b72cf') + '44'
+  }
 
   return (
     <div style={{
@@ -164,7 +180,7 @@ export default function ProfilePage() {
             {/* Power + tier banner */}
             <div style={{
               background: 'rgba(255,255,255,0.03)',
-              border: `1px solid ${tierStyle.color}44`,
+              border: `1px solid ${character.equipped_border ? getBorderColor(character.equipped_border) : tierStyle.color + '44'}`,
               borderRadius: '16px', padding: '2rem',
               marginBottom: '1.5rem', textAlign: 'center',
               position: 'relative', overflow: 'hidden',
@@ -185,6 +201,19 @@ export default function ProfilePage() {
                   {character.name}
                 </div>
               )}
+
+              {character.equipped_title && (() => {
+                const item = getCosmetic(character.equipped_title)
+                return item ? (
+                  <div style={{
+                    fontFamily: '"Crimson Text", serif',
+                    fontSize: '0.95rem', fontStyle: 'italic',
+                    color: '#BA7517', marginBottom: '0.5rem',
+                  }}>
+                    "{item.value}"
+                  </div>
+                ) : null
+              })()}
 
               {/* Tier badge */}
               <div style={{
@@ -212,6 +241,15 @@ export default function ProfilePage() {
               }}>
                 Total Power
               </div>
+              {character.gold !== undefined && (
+                <div style={{
+                  fontFamily: '"Crimson Text", serif',
+                  color: '#BA7517', fontSize: '0.9rem',
+                  marginTop: '0.5rem',
+                }}>
+                  💰 {character.gold.toLocaleString()} gold
+                </div>
+              )}
             </div>
 
             {/* Realm breakdown */}
