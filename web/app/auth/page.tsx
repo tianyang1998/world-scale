@@ -32,7 +32,10 @@ export default function AuthPage() {
       if (error) {
         setError(error.message)
       } else {
-        router.push('/profile')
+        // Check if user has a saved character to decide redirect
+        const charRes = await fetch('/api/character/get')
+        const charData = await charRes.json()
+        router.push(charData.character ? '/map' : '/score')
         router.refresh()
       }
     }
