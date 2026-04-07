@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => router.push('/')} style={{
+            <button onClick={() => router.push('/score')} style={{
               padding: '0.5rem 1.25rem', background: 'transparent',
               border: '1px solid rgba(155,114,207,0.3)', borderRadius: '8px',
               color: '#9b72cf', fontFamily: '"Cinzel", serif', fontSize: '0.7rem',
@@ -142,7 +142,7 @@ export default function LeaderboardPage() {
             <p style={{ fontFamily: '"Crimson Text", serif', color: '#4a3860', fontSize: '1rem', margin: '0 0 1.5rem' }}>
               Be the first to claim your place in the Hall of Legends
             </p>
-            <button onClick={() => router.push('/')} style={{
+            <button onClick={() => router.push('/score')} style={{
               padding: '0.75rem 2rem', background: 'rgba(155,114,207,0.2)',
               border: '1px solid rgba(155,114,207,0.4)', borderRadius: '8px',
               color: '#c8a8f0', fontFamily: '"Cinzel", serif', fontSize: '0.75rem',

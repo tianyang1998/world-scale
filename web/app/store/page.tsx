@@ -28,7 +28,7 @@ export default function StorePage() {
 
       const res = await fetch('/api/character/get')
       const data = await res.json()
-      if (!data.character) { router.push('/'); return }
+      if (!data.character) { router.push('/score'); return }
 
       setCharacter({
         gold: data.character.gold ?? 0,

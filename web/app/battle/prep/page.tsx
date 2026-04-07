@@ -40,7 +40,7 @@ function PrepPageInner() {
 
       const res  = await fetch('/api/character/get')
       const data = await res.json()
-      if (!data.character) { router.push('/'); return }
+      if (!data.character) { router.push('/score'); return }
 
       const c = data.character as CharacterData
       setCharacter(c)
