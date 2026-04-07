@@ -5,6 +5,7 @@ __pycache__/
 *.json.bak
 .claude
 .superpowers
+.worktrees
 
 # Node / Next.js
 web/node_modules/
