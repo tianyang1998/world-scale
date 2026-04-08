@@ -227,6 +227,19 @@ export default function LandingPage() {
             TRY THE SCORER
           </CTAButtonOutline>
         </div>
+
+        {/* Privacy link */}
+        <a
+          href="/legal/privacy"
+          style={{
+            position: 'absolute', bottom: '24px',
+            fontFamily: "'Crimson Text', serif",
+            fontSize: '13px', color: 'rgba(196,166,90,0.4)',
+            textDecoration: 'none',
+          }}
+        >
+          Privacy Policy
+        </a>
       </div>
     </>
   )

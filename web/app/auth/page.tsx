@@ -52,6 +52,7 @@ export default function AuthPage() {
       background: '#0a0a0f',
       fontFamily: '"Cinzel", serif',
       padding: '2rem',
+      position: 'relative',
     }}>
       {/* Background rune pattern */}
       <div style={{
@@ -289,6 +290,18 @@ export default function AuthPage() {
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital@0;1&display=swap');
         input::placeholder { color: #4a3860; }
       `}</style>
+
+      <a
+        href="/legal/privacy"
+        style={{
+          position: 'absolute', bottom: '24px',
+          fontFamily: '"Cinzel", serif',
+          fontSize: '0.65rem', color: 'rgba(155,114,207,0.3)',
+          textDecoration: 'none', letterSpacing: '0.1em', textTransform: 'uppercase',
+        }}
+      >
+        Privacy Policy
+      </a>
     </div>
   )
 }
