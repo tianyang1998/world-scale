@@ -49,6 +49,8 @@ export default function ProfilePage() {
   const [character, setCharacter] = useState<Character | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const supabase = createClient()
 
@@ -70,6 +72,18 @@ export default function ProfilePage() {
     await supabase.auth.signOut()
     router.push('/')
     router.refresh()
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    const res = await fetch('/api/account/delete', { method: 'POST' })
+    if (res.ok) {
+      await supabase.auth.signOut()
+      router.push('/')
+    } else {
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   const tierStyle = character ? getTierStyle(character.total_power) : null
@@ -304,6 +318,80 @@ export default function ProfilePage() {
             </p>
           </div>
         )}
+
+        {/* Delete account section */}
+        {!loading && (
+          <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid rgba(155,114,207,0.1)' }}>
+            {!showDeleteConfirm ? (
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{
+                    padding: '0.5rem 1.25rem', background: 'transparent',
+                    border: '1px solid rgba(180,60,60,0.3)', borderRadius: '8px',
+                    color: '#804040', fontFamily: '"Cinzel", serif', fontSize: '0.65rem',
+                    letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+                  }}
+                >
+                  Delete Account
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(120,30,30,0.08)', border: '1px solid rgba(180,60,60,0.2)',
+                borderRadius: '12px', padding: '1.5rem', textAlign: 'center',
+              }}>
+                <p style={{
+                  fontFamily: '"Crimson Text", serif', color: '#c87070',
+                  fontSize: '1rem', marginBottom: '1.25rem',
+                }}>
+                  This will permanently delete your character, stats, and gold. This cannot be undone.
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleting}
+                    style={{
+                      padding: '0.5rem 1.25rem', background: 'transparent',
+                      border: '1px solid rgba(155,114,207,0.3)', borderRadius: '8px',
+                      color: '#6b5c80', fontFamily: '"Cinzel", serif', fontSize: '0.65rem',
+                      letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    style={{
+                      padding: '0.5rem 1.25rem', background: 'rgba(120,30,30,0.3)',
+                      border: '1px solid rgba(180,60,60,0.4)', borderRadius: '8px',
+                      color: '#e07070', fontFamily: '"Cinzel", serif', fontSize: '0.65rem',
+                      letterSpacing: '0.1em', textTransform: 'uppercase', cursor: deleting ? 'default' : 'pointer',
+                      opacity: deleting ? 0.6 : 1,
+                    }}
+                  >
+                    {deleting ? 'Deleting...' : 'Delete My Account'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          <a
+            href="/legal/privacy"
+            style={{
+              fontFamily: '"Crimson Text", serif', color: '#3a2e50',
+              fontSize: '0.8rem', textDecoration: 'none',
+            }}
+          >
+            Privacy Policy
+          </a>
+        </div>
+
       </div>
     </div>
   )
