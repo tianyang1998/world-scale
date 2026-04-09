@@ -10,6 +10,8 @@ import {
   updateProjectile, checkHit, checkNoDodgeHit,
   createSword, createRealmProjectile, createHealPulse,
 } from '@/lib/projectiles'
+import { audioManager } from '@/lib/audioManager'
+import AudioControls from '@/components/AudioControls'
 
 interface Fighter {
   userId: string; name: string; realm: string
@@ -101,6 +103,10 @@ export default function BattlePage() {
   const projectilesRef = useRef<Projectile[]>([])
   const hitFlashesRef = useRef<HitFlash[]>([])
 
+  useEffect(() => {
+    audioManager.playBGM('pvp')
+  }, [])
+
   useEffect(()=>{ meRef.current=me },[me])
   useEffect(()=>{ opponentRef.current=opponent },[opponent])
   useEffect(()=>{ userIdRef.current=userId },[userId])
@@ -111,7 +117,10 @@ export default function BattlePage() {
 
   const endBattle = useCallback(async(winnerId: string, loser: Fighter, _winner: Fighter)=>{
     setPhase('ended'); setWinner(winnerId===userIdRef.current?'you':'opponent')
-    const gold = calcGoldTransfer(loser.gold); setGoldDelta(winnerId===userIdRef.current?gold:-gold)
+    const didWin = winnerId===userIdRef.current
+    audioManager.playBGM(didWin ? 'win' : 'lose')
+    audioManager.playSFX(didWin ? 'victory' : 'defeat')
+    const gold = calcGoldTransfer(loser.gold); setGoldDelta(didWin?gold:-gold)
     await fetch('/api/battle/end',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ battle_id:battleId, winner_id:winnerId, gold_transferred:gold }) })
   },[battleId])
 
@@ -407,6 +416,7 @@ export default function BattlePage() {
         }
         if(payload.effect==='heal'){ setOpponent(prev=>prev?{...prev,currentHp:Math.min(prev.maxHp,prev.currentHp+payload.damage)}:prev); addLog('⚕️ Opponent healed!') }
         projectilesRef.current.push(proj)
+        audioManager.playSFX('hit')
       })
       channel.subscribe(async(status)=>{ if(status==='SUBSCRIBED') await channel.track({name:data.character?.name??'Unknown',hp,attack,defence,gold,realm}) })
     }
@@ -429,13 +439,14 @@ export default function BattlePage() {
     if(distXY(mp.x,mp.y,op.x,op.y)>MELEE_RANGE||!hasLOS(mp.x,mp.y,op.x,op.y)){addLog('⚔️ Too far!');return}
     const damage=calcDamage(m.attack*m.attackDebuffMultiplier,opp.defence*opp.defenceDebuffMultiplier,1.0,opp.isBracing)
     const proj=createSword(mp.x,mp.y,op.x,op.y,opp.userId,damage)
-    projectilesRef.current.push(proj); fireProj('strike',proj); addLog('⚔️ Strike!')
+    audioManager.playSFX('playerAttack'); projectilesRef.current.push(proj); fireProj('strike',proj); addLog('⚔️ Strike!')
   }
 
   function handleBrace() {
     const m=meRef.current; if(!m||phaseRef.current!=='fighting'||m.isStunned) return
     setBracingUntil(Date.now()+1000); setMe(prev=>prev?{...prev,isBracing:true}:prev)
     setTimeout(()=>setMe(prev=>prev?{...prev,isBracing:false}:prev),1000); addLog('🛡️ Braced!')
+    audioManager.playSFX('dodge')
     channelRef.current?.send({type:'broadcast',event:'projectile',payload:{actionType:'brace',realm,fromX:0,fromY:0,toX:0,toY:0,targetId:opponentRef.current?.userId,damage:0}})
   }
 
@@ -454,7 +465,7 @@ export default function BattlePage() {
       const damage=calcDamage(ea,ed,skill.multiplier,opp.isBracing)
       const proj=createRealmProjectile(realm,mp.x,mp.y,op.x,op.y,opp.userId,damage)
       const stunEffect=skill.stunChance&&Math.random()<skill.stunChance?'stun':undefined
-      projectilesRef.current.push(proj); fireProj('realm_offensive',proj,stunEffect?{effect:stunEffect}:{}); addLog(`${skill.icon} ${skill.name}!`)
+      audioManager.playSFX('playerAttack'); projectilesRef.current.push(proj); fireProj('realm_offensive',proj,stunEffect?{effect:stunEffect}:{}); addLog(`${skill.icon} ${skill.name}!`)
     }
     if(skill.healPercent){
       const healAmount=Math.round(m.maxHp*skill.healPercent)
@@ -563,6 +574,7 @@ export default function BattlePage() {
           {phase==='fighting'&&<div style={{textAlign:'center',marginTop:'0.5rem',fontFamily:'"Crimson Text",serif',color:'rgba(155,114,207,0.35)',fontSize:'0.75rem'}}>Move: WASD · Strike: Right-click · Brace: Space · Realm skill: Q · Dodge by moving!</div>}
         </div>
       )}
+      <AudioControls />
     </div>
   )
 }
