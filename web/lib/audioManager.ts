@@ -19,6 +19,7 @@ class AudioManager {
   private bgmEl: HTMLAudioElement | null = null
   private bgmGain: GainNode | null = null
   private currentTrack: BGMTrack | null = null
+  private bgmFadeTimeout: ReturnType<typeof setTimeout> | null = null
   private bgmVolume: number
   private sfxVolume: number
 
@@ -47,57 +48,69 @@ class AudioManager {
   }
 
   private ensureBGM(): { el: HTMLAudioElement; gain: GainNode } {
-    if (!this.bgmEl || !this.bgmGain) {
-      const ctx = this.getCtx()
-      const el = new Audio()
-      el.crossOrigin = 'anonymous'
-      const source = ctx.createMediaElementSource(el)
-      const gain = ctx.createGain()
-      gain.gain.value = this.bgmVolume
-      source.connect(gain)
-      gain.connect(ctx.destination)
-      this.bgmEl = el
-      this.bgmGain = gain
+    if (this.bgmEl && this.bgmGain) {
+      return { el: this.bgmEl, gain: this.bgmGain }
     }
+    const ctx = this.getCtx()
+    const el = new Audio()
+    el.crossOrigin = 'anonymous'
+    const source = ctx.createMediaElementSource(el)
+    const gain = ctx.createGain()
+    gain.gain.value = this.bgmVolume
+    source.connect(gain)
+    gain.connect(ctx.destination)
+    this.bgmEl = el
+    this.bgmGain = gain
     return { el: this.bgmEl, gain: this.bgmGain }
   }
 
   playBGM(track: BGMTrack): void {
     if (this.currentTrack === track) return
+    this.currentTrack = track  // set immediately so rapid calls are guarded
+
+    if (this.bgmFadeTimeout !== null) {
+      clearTimeout(this.bgmFadeTimeout)
+      this.bgmFadeTimeout = null
+    }
+
     const ctx = this.getCtx()
     const { el, gain } = this.ensureBGM()
     const now = ctx.currentTime
-
-    // Fade out current track
     gain.gain.cancelScheduledValues(now)
     gain.gain.setValueAtTime(gain.gain.value, now)
     gain.gain.linearRampToValueAtTime(0, now + FADE_DURATION)
 
-    setTimeout(() => {
+    this.bgmFadeTimeout = setTimeout(() => {
+      this.bgmFadeTimeout = null
       el.pause()
       el.src = `/audio/bgm/${track}.mp3`
       el.loop = BGM_LOOP[track]
-      el.play().catch(() => {
-        // Autoplay blocked — will resume on first user interaction
-      })
-      const resumeCtx = this.getCtx()
-      const resumeNow = resumeCtx.currentTime
+      el.play().catch(() => {})
+      const resumeNow = ctx.currentTime
       gain.gain.cancelScheduledValues(resumeNow)
       gain.gain.setValueAtTime(0, resumeNow)
       gain.gain.linearRampToValueAtTime(this.bgmVolume, resumeNow + FADE_DURATION)
-      this.currentTrack = track
     }, FADE_DURATION * 1000)
   }
 
   stopBGM(): void {
     if (!this.bgmEl || !this.bgmGain) return
+    this.currentTrack = null  // set immediately
+
+    if (this.bgmFadeTimeout !== null) {
+      clearTimeout(this.bgmFadeTimeout)
+      this.bgmFadeTimeout = null
+    }
+
     const ctx = this.getCtx()
     const now = ctx.currentTime
     this.bgmGain.gain.cancelScheduledValues(now)
     this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, now)
     this.bgmGain.gain.linearRampToValueAtTime(0, now + FADE_DURATION)
-    setTimeout(() => { this.bgmEl?.pause() }, FADE_DURATION * 1000)
-    this.currentTrack = null
+    this.bgmFadeTimeout = setTimeout(() => {
+      this.bgmFadeTimeout = null
+      this.bgmEl?.pause()
+    }, FADE_DURATION * 1000)
   }
 
   setBGMVolume(value: number): void {
