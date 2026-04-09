@@ -9,8 +9,8 @@ export default function AudioControls() {
   const [sfxVol, setSfxVol] = useState(() => audioManager.getSFXVolume())
   const [bgmMuted, setBgmMuted] = useState(false)
   const [sfxMuted, setSfxMuted] = useState(false)
-  const [prevBgm, setPrevBgm] = useState(audioManager.getBGMVolume())
-  const [prevSfx, setPrevSfx] = useState(audioManager.getSFXVolume())
+  const [prevBgm, setPrevBgm] = useState<number | null>(null)
+  const [prevSfx, setPrevSfx] = useState<number | null>(null)
 
   const handleBgmChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value)
@@ -28,7 +28,7 @@ export default function AudioControls() {
 
   const toggleBgmMute = useCallback(() => {
     if (bgmMuted) {
-      const restore = prevBgm || 0.5
+      const restore = prevBgm !== null ? prevBgm : 0.5
       setBgmVol(restore)
       setBgmMuted(false)
       audioManager.setBGMVolume(restore)
@@ -42,7 +42,7 @@ export default function AudioControls() {
 
   const toggleSfxMute = useCallback(() => {
     if (sfxMuted) {
-      const restore = prevSfx || 0.5
+      const restore = prevSfx !== null ? prevSfx : 0.5
       setSfxVol(restore)
       setSfxMuted(false)
       audioManager.setSFXVolume(restore)
