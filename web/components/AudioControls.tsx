@@ -28,7 +28,7 @@ export default function AudioControls() {
 
   const toggleBgmMute = useCallback(() => {
     if (bgmMuted) {
-      const restore = prevBgm !== null ? prevBgm : 0.5
+      const restore = prevBgm !== null ? prevBgm : bgmVol
       setBgmVol(restore)
       setBgmMuted(false)
       audioManager.setBGMVolume(restore)
@@ -42,7 +42,7 @@ export default function AudioControls() {
 
   const toggleSfxMute = useCallback(() => {
     if (sfxMuted) {
-      const restore = prevSfx !== null ? prevSfx : 0.5
+      const restore = prevSfx !== null ? prevSfx : sfxVol
       setSfxVol(restore)
       setSfxMuted(false)
       audioManager.setSFXVolume(restore)

@@ -22,6 +22,7 @@ class AudioManager {
   private bgmFadeTimeout: ReturnType<typeof setTimeout> | null = null
   private bgmVolume: number
   private sfxVolume: number
+  private unlockHandlerAdded = false
 
   constructor() {
     this.bgmVolume = parseFloat(
@@ -36,9 +37,31 @@ class AudioManager {
     )
   }
 
+  private addUnlockListener(): void {
+    if (this.unlockHandlerAdded) return
+    this.unlockHandlerAdded = true
+    const unlock = () => {
+      if (this.audioCtx?.state === 'suspended') {
+        this.audioCtx.resume().then(() => {
+          // Try to play BGM if a track is pending
+          if (this.bgmEl && this.bgmEl.paused && this.currentTrack) {
+            this.bgmEl.play().catch(() => {})
+          }
+        })
+      }
+      window.removeEventListener('click', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+    window.addEventListener('click', unlock)
+    window.addEventListener('keydown', unlock)
+    window.addEventListener('touchstart', unlock)
+  }
+
   private getCtx(): AudioContext {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      this.addUnlockListener()
     }
     // Resume if suspended (browser autoplay policy)
     if (this.audioCtx.state === 'suspended') {
@@ -120,6 +143,12 @@ class AudioManager {
       this.bgmGain.gain.cancelScheduledValues(ctx.currentTime)
       this.bgmGain.gain.setValueAtTime(this.bgmVolume, ctx.currentTime)
     }
+    if (this.bgmVolume === 0 && this.bgmFadeTimeout !== null) {
+      clearTimeout(this.bgmFadeTimeout)
+      this.bgmFadeTimeout = null
+      // Reset currentTrack so re-enabling volume re-triggers the track
+      this.currentTrack = null
+    }
     localStorage.setItem('ws_bgm_volume', String(this.bgmVolume))
   }
 
@@ -152,7 +181,7 @@ class AudioManager {
       }
       case 'hit': {
         // Noise burst + low thud
-        const bufferSize = ctx.sampleRate * 0.08
+        const bufferSize = Math.floor(ctx.sampleRate * 0.08)
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
         const data = buffer.getChannelData(0)
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
