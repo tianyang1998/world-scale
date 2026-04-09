@@ -12,6 +12,8 @@ import {
   drawTrees, drawBushes, drawPortal, drawBossLair, drawLandmark,
   drawStoreTooltip,
 } from '@/lib/map-draw'
+import { audioManager } from '@/lib/audioManager'
+import AudioControls from '@/components/AudioControls'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,6 +105,10 @@ export default function MapPage() {
   const [pveInvite,      setPveInvite]      = useState<{ fromName: string; battleId: string; bossName: string; bossTier: string } | null>(null)
   const [loading,        setLoading]        = useState(true)
   const [error,          setError]          = useState<string | null>(null)
+
+  useEffect(() => {
+    audioManager.playBGM('map')
+  }, [])
 
   // Sync state → refs
   useEffect(() => { currentTierRef.current = currentTier }, [currentTier])
@@ -714,6 +720,8 @@ export default function MapPage() {
           </div>
         </div>
       )}
+
+      <AudioControls />
     </div>
   )
 }
