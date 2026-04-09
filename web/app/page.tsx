@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { runShowcase, runAmbientLoop } from '@/lib/showcase'
+import { audioManager } from '@/lib/audioManager'
 
 export default function LandingPage() {
   const router = useRouter()
@@ -13,6 +14,11 @@ export default function LandingPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [showCTA, setShowCTA] = useState(false)
   const [activeScene, setActiveScene] = useState(0)
+
+  // ── Play landing BGM ───────────────────────────────────────────────────────
+  useEffect(() => {
+    audioManager.playBGM('landing')
+  }, [])
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
