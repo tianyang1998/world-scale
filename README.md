@@ -3,7 +3,7 @@
 
 Your professional achievements — citations, GitHub stars, case wins, patients treated — are translated into a character in a shared fantasy world. No invented stats. Your power comes from who you actually are.
 
-Play live at **[world-scale.vercel.app](https://world-scale.vercel.app)**
+Play live at **[worldscalegame.com](https://worldscalegame.com)**
 
 ---
 
@@ -205,14 +205,3 @@ All attacks are physical projectiles — not instant damage. Players can dodge b
 **Channel cleanup** — use `supabase.removeChannel()` on unmount, not `channel.unsubscribe()`. `removeChannel` fully tears down the channel; `unsubscribe` leaves it registered and causes duplicate channel bugs on re-entry.
 
 ---
-
-## Phase roadmap
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1 | ✅ Complete | Python CLI scorer |
-| 2 | ✅ Complete | Next.js web app, scoring API, OG images |
-| 3 | ✅ Complete | Auth, Supabase, world map, PvP battles |
-| 4 | ✅ Complete | PvE boss system, projectile combat, bug fixes |
-| 5 | 🔄 In progress | Visual overhaul — RPG world map, cute blob characters, dungeon arenas |
-| 6 | 📋 Planned | Launch prep — Finance realm, onboarding, mobile polish, privacy policy |
