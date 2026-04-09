@@ -14,6 +14,8 @@ import {
   BOSSES, BOSS_SKILLS, Boss, BossState,
   pickAttackTarget, pickSkillTargets, PlayerSnapshot,
 } from '@/lib/boss'
+import { audioManager } from '@/lib/audioManager'
+import AudioControls from '@/components/AudioControls'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -180,6 +182,10 @@ export default function PvEPage() {
   const battleStartTimeRef = useRef<number>(0) // for grace period
   const GRACE_PERIOD_MS = 3000
 
+  useEffect(() => {
+    audioManager.playBGM('pve')
+  }, [])
+
   useEffect(() => { teamRef.current = team }, [team])
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { userIdRef.current = userId }, [userId])
@@ -200,6 +206,8 @@ export default function PvEPage() {
     if (endedRef.current) return
     endedRef.current = true
     setPhase('ended')
+    audioManager.playBGM(teamWon ? 'win' : 'lose')
+    audioManager.playSFX(teamWon ? 'victory' : 'defeat')
     setWinner(teamWon ? 'team' : 'boss')
 
     const survivors = teamRef.current.filter(p => !p.isDead).map(p => p.userId)
@@ -234,6 +242,7 @@ export default function PvEPage() {
       targetId, damage
     )
     projectilesRef.current.push(proj)
+    audioManager.playSFX('bossAttack')
     // Broadcast so all clients see the projectile
     channelRef.current?.send({
       type: 'broadcast', event: 'boss_projectile',
@@ -253,6 +262,7 @@ export default function PvEPage() {
         return { ...f, currentHp: newHp, isDead }
       })
       teamRef.current = next
+      audioManager.playSFX('hit')
       if (next.every(f => f.isDead)) endBattle(false)
       return next
     })
@@ -926,6 +936,7 @@ export default function PvEPage() {
         if (isLeaderRef.current) return // leader already spawned it in fireBossProjectile
         const proj = createBossProjectile(payload.realm, payload.fromX, payload.fromY, payload.toX, payload.toY, payload.targetId, payload.damage)
         projectilesRef.current.push(proj)
+        audioManager.playSFX('bossAttack')
       })
 
       // Boss special skill
@@ -1128,6 +1139,7 @@ export default function PvEPage() {
     // Spawn visual sword projectile
     if (myPos) {
       const proj = createSword(myPos.x, myPos.y, bossPosRef.current.x, bossPosRef.current.y, 'boss', damage)
+      audioManager.playSFX('playerAttack')
       projectilesRef.current.push(proj)
       hitFlashesRef.current.push({ x: bossPosRef.current.x, y: bossPosRef.current.y, color: proj.color, age: 0 })
     }
@@ -1172,6 +1184,7 @@ export default function PvEPage() {
       // Spawn realm projectile visual
       if (myPos) {
         const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', damage)
+        audioManager.playSFX('playerAttack')
         projectilesRef.current.push(proj)
         hitFlashesRef.current.push({ x: bx, y: by, color: proj.color, age: 0 })
       }
@@ -1459,6 +1472,7 @@ export default function PvEPage() {
           </div>
         )}
       </div>
+      <AudioControls />
     </div>
   )
 }
