@@ -57,7 +57,7 @@ export default function AudioControls() {
   return (
     <div style={{
       position: 'fixed',
-      top: '12px',
+      bottom: '12px',
       right: '12px',
       zIndex: 500,
       background: 'rgba(10,10,20,0.82)',
