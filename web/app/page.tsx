@@ -234,18 +234,29 @@ export default function LandingPage() {
           </CTAButtonOutline>
         </div>
 
-        {/* Privacy link */}
-        <a
-          href="/legal/privacy"
-          style={{
-            position: 'absolute', bottom: '24px',
-            fontFamily: "'Crimson Text', serif",
-            fontSize: '13px', color: 'rgba(196,166,90,0.4)',
-            textDecoration: 'none',
-          }}
-        >
-          Privacy Policy
-        </a>
+        {/* Legal links */}
+        <div style={{ position: 'absolute', bottom: '24px', display: 'flex', gap: '1.5rem' }}>
+          <a
+            href="/legal/privacy"
+            style={{
+              fontFamily: "'Crimson Text', serif",
+              fontSize: '13px', color: 'rgba(196,166,90,0.4)',
+              textDecoration: 'none',
+            }}
+          >
+            Privacy Policy
+          </a>
+          <a
+            href="/legal/credits"
+            style={{
+              fontFamily: "'Crimson Text', serif",
+              fontSize: '13px', color: 'rgba(196,166,90,0.4)',
+              textDecoration: 'none',
+            }}
+          >
+            Credits
+          </a>
+        </div>
       </div>
     </>
   )
