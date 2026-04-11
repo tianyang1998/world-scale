@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation' // useSearchParams needed for boss_tier param
 import { createClient } from '@/lib/supabase-client'
 import { calcDamage, REALM_SKILLS, calcGoldTransfer } from '@/lib/battle'
 import { getTierStyle } from '@/lib/types'
@@ -136,11 +136,8 @@ export default function PvEPage() {
   const { id: battleId } = useParams<{ id: string }>()
   const params     = useSearchParams()
 
-  const hp      = Number(params.get('hp')      ?? 0)
-  const attack  = Number(params.get('attack')  ?? 0)
-  const defence = Number(params.get('defence') ?? 0)
-  const realm   = params.get('realm') ?? 'academia'
   const bossKey = params.get('boss_tier') ?? ''
+  const [myStats, setMyStats] = useState<{hp:number;attack:number;defence:number;realm:string}|null>(null)
 
   const [phase,        setPhase]        = useState<BattlePhase>('lobby')
   const [team,         setTeam]         = useState<TeamFighter[]>([])
@@ -177,6 +174,8 @@ export default function PvEPage() {
   const positionsRef = useRef<Map<string, ArenaPos>>(new Map())
   const bossPosRef   = useRef({ x: 750, y: 250 })
   const projectilesRef = useRef<Projectile[]>([])
+  const lastStrikeRef  = useRef<number>(0)
+  const STRIKE_COOLDOWN_MS = 800
   const hitFlashesRef  = useRef<HitFlash[]>([])
   const lastFrameTime  = useRef(0)
   const battleStartTimeRef = useRef<number>(0) // for grace period
@@ -813,6 +812,13 @@ export default function PvEPage() {
       setUserId(user.id)
       userIdRef.current = user.id
 
+      // Fetch stats from DB (not URL — prevents cheating)
+      const statsRes = await fetch(`/api/pve/get-stats?battle_id=${battleId}`)
+      const statsData = await statsRes.json()
+      if (!statsData.stats) { router.push('/map'); return }
+      const { hp, attack, defence, realm } = statsData.stats
+      setMyStats({ hp, attack, defence, realm })
+
       const res  = await fetch('/api/character/get')
       const data = await res.json()
       const gold = data.character?.gold ?? 0
@@ -1130,6 +1136,9 @@ export default function PvEPage() {
   function handleStrike() {
     const me = teamRef.current.find(f => f.userId === userIdRef.current)
     if (!me || phaseRef.current !== 'fighting' || me.isStunned || me.isDead) return
+    const now = Date.now()
+    if (now - lastStrikeRef.current < STRIKE_COOLDOWN_MS) return
+    lastStrikeRef.current = now
     if (!inRange) { addLog('⚔️ Too far! Move closer to the boss.'); return }
 
     const myPos = positionsRef.current.get(me.userId)
@@ -1162,7 +1171,7 @@ export default function PvEPage() {
     const me = teamRef.current.find(f => f.userId === userIdRef.current)
     if (!me || phaseRef.current !== 'fighting' || me.isStunned || me.isDead) return
 
-    const skill = REALM_SKILLS[realm]
+    const skill = REALM_SKILLS[me.realm]
     if (!skill) return
     const cooldownMs = skill.cooldown * 1000
     if (Date.now() - me.realmSkillLastUsed < cooldownMs) return
@@ -1183,7 +1192,7 @@ export default function PvEPage() {
       const damage = calcDamage(effectiveAttack, getBossDefence(), skill.multiplier, false)
       // Spawn realm projectile visual
       if (myPos) {
-        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', damage)
+        const proj = createRealmProjectile(me.realm, myPos.x, myPos.y, bx, by, 'boss', damage)
         audioManager.playSFX('playerAttack')
         projectilesRef.current.push(proj)
         hitFlashesRef.current.push({ x: bx, y: by, color: proj.color, age: 0 })
@@ -1214,7 +1223,7 @@ export default function PvEPage() {
     // ── Academia: reduce boss defence with orb visual ─────────────────────────
     if (skill.defenceDebuff) {
       if (myPos) {
-        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', 0)
+        const proj = createRealmProjectile(me.realm, myPos.x, myPos.y, bx, by, 'boss', 0)
         projectilesRef.current.push(proj)
       }
       addLog(`${skill.icon} ${me.name} weakened the boss's defence for the whole team!`)
@@ -1229,7 +1238,7 @@ export default function PvEPage() {
     // ── Law: reduce boss attack with verdict visual ────────────────────────────
     if (skill.attackDebuff) {
       if (myPos) {
-        const proj = createRealmProjectile(realm, myPos.x, myPos.y, bx, by, 'boss', 0)
+        const proj = createRealmProjectile(me.realm, myPos.x, myPos.y, bx, by, 'boss', 0)
         projectilesRef.current.push(proj)
       }
       addLog(`${skill.icon} ${me.name} issued a Verdict — boss attack reduced for everyone!`)
@@ -1246,7 +1255,7 @@ export default function PvEPage() {
   handleRealmSkillRef.current = handleRealmSkill
 
   const realmCooldownLeft = Math.max(0, (realmCooldownUntil - now) / 1000)
-  const realmSkill = REALM_SKILLS[realm]
+  const realmSkill = REALM_SKILLS[myStats?.realm ?? 'academia']
   const me = team.find(f => f.userId === userId)
   const bossHpPct = bossMaxHp > 0 ? bossHp / bossMaxHp : 0
   const bossHpColor = bossHpPct > 0.5 ? '#E24B4A' : bossHpPct > 0.25 ? '#EF9F27' : '#8b0000'
@@ -1294,7 +1303,7 @@ export default function PvEPage() {
               const pct = fighter.maxHp > 0 ? fighter.currentHp / fighter.maxHp : 0
               const color = pct > 0.5 ? '#1D9E75' : pct > 0.25 ? '#EF9F27' : '#E24B4A'
               const ts = getTierStyle(fighter.maxHp + fighter.attack + fighter.defence)
-              const isMedicPlayer = realm === 'medicine' && phase === 'fighting'
+              const isMedicPlayer = myStats?.realm === 'medicine' && phase === 'fighting'
               const isHealTarget = selectedHealTarget === fighter.userId || (selectedHealTarget === null && fighter.userId === userId)
               return (
                 <div
@@ -1333,7 +1342,7 @@ export default function PvEPage() {
             })}
           </div>
         )}
-        {realm === 'medicine' && phase === 'fighting' && (
+        {myStats?.realm === 'medicine' && phase === 'fighting' && (
           <div style={{ fontFamily: '"Crimson Text", serif', fontSize: '0.72rem', color: 'rgba(29,158,117,0.5)', marginBottom: '0.5rem', textAlign: 'center' }}>
             ⚕️ Click a teammate's HP bar to set heal target · defaults to self
           </div>

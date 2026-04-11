@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
-export default function AuthPage() {
+function AuthPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+
+  useEffect(() => {
+    const m = searchParams.get('mode')
+    if (m === 'signup' || m === 'signin') setMode(m)
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -303,5 +309,13 @@ export default function AuthPage() {
         Privacy Policy
       </a>
     </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthPageInner />
+    </Suspense>
   )
 }

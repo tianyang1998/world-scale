@@ -78,11 +78,16 @@ function PrepPageInner() {
     }
   }
 
-  function handleEnterBattle() {
+  async function handleEnterBattle() {
     if (!character || !battleId) return
-    router.push(
-      `/battle/${battleId}?hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
-    )
+    const res = await fetch('/api/battle/save-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ battle_id: battleId, hp, attack, defence, realm: selectedRealm }),
+    })
+    const data = await res.json()
+    if (!data.success) return // stat validation failed — stay on page
+    router.push(`/battle/${battleId}`)
   }
 
   async function handleBuyInsurance() {

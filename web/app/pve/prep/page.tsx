@@ -81,6 +81,15 @@ function PvEPrepInner() {
   async function handleEnterBoss() {
     if (!character || !battleId) return
 
+    // Save stats to DB first
+    const statsRes = await fetch('/api/pve/save-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ battle_id: battleId, hp, attack, defence, realm: selectedRealm }),
+    })
+    const statsData = await statsRes.json()
+    if (!statsData.success) return // stat validation failed — stay on page
+
     // Apply broadcast upgrade if selected
     if (selectedBroadcast.cost > 0) {
       const res = await fetch('/api/pve/broadcast', {
@@ -92,9 +101,7 @@ function PvEPrepInner() {
       if (!data.success) return // failed to purchase, stay on page
     }
 
-    router.push(
-      `/pve/${battleId}?boss_tier=${encodeURIComponent(bossTier)}&hp=${hp}&attack=${attack}&defence=${defence}&realm=${selectedRealm}`
-    )
+    router.push(`/pve/${battleId}?boss_tier=${encodeURIComponent(bossTier)}`)
   }
 
   if (loading || !character) {

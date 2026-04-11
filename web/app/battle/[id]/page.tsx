@@ -67,10 +67,8 @@ function distXY(ax: number, ay: number, bx: number, by: number) { return Math.sq
 export default function BattlePage() {
   const router = useRouter()
   const { id: battleId } = useParams<{ id: string }>()
-  const params = useSearchParams()
-  const hp = Number(params.get('hp')??0), attack = Number(params.get('attack')??0), defence = Number(params.get('defence')??0)
-  const realm = params.get('realm')?? 'academia'
 
+  const [myStats, setMyStats] = useState<{hp:number;attack:number;defence:number;realm:string}|null>(null)
   const [phase, setPhase] = useState<BattlePhase>('waiting')
   const [me, setMe] = useState<Fighter|null>(null)
   const [opponent, setOpponent] = useState<Fighter|null>(null)
@@ -102,6 +100,8 @@ export default function BattlePage() {
   const phaseRef = useRef<BattlePhase>('waiting')
   const projectilesRef = useRef<Projectile[]>([])
   const hitFlashesRef = useRef<HitFlash[]>([])
+  const lastStrikeRef = useRef(0)
+  const STRIKE_COOLDOWN_MS = 800
 
   useEffect(() => {
     audioManager.playBGM('pvp')
@@ -361,25 +361,41 @@ export default function BattlePage() {
       const { data:{user} } = await supabase.auth.getUser()
       if(!user){ router.push('/auth'); return }
       setUserId(user.id); userIdRef.current=user.id
+
+      // Fetch stats from DB (not URL — prevents cheating)
+      const statsRes=await fetch(`/api/battle/get-stats?battle_id=${battleId}`)
+      const statsData=await statsRes.json()
+      if(!statsData.stats){ router.push('/map'); return }
+      const { hp, attack, defence, realm } = statsData.stats
+      setMyStats({ hp, attack, defence, realm })
+
       const res=await fetch('/api/character/get'); const data=await res.json(); const gold=data.character?.gold??0
       const myFighter: Fighter = { userId:user.id, name:data.character?.name??'You', realm, maxHp:hp, currentHp:hp, attack, defence, isBracing:false, isStunned:false, defenceDebuffMultiplier:1.0, defenceDebuffUntil:0, attackDebuffMultiplier:1.0, attackDebuffUntil:0, realmSkillLastUsed:0, gold }
       setMe(myFighter); meRef.current=myFighter
       const channel=supabase.channel(`battle:${battleId}`,{config:{presence:{key:user.id}}})
       channelRef.current=channel
-      channel.on('presence',{event:'join'},({key,newPresences}:{key:string,newPresences:{name:string,hp:number,attack:number,defence:number,gold:number,realm:string}[]})=>{
+      channel.on('presence',{event:'join'},({key,newPresences}:{key:string,newPresences:{name:string,hp:number,attack:number,defence:number,gold:number,realm:string,currentHp?:number}[]})=>{
         if(key!==user.id){
           const p=newPresences[0]
-          const opp: Fighter={userId:key,name:p.name,realm:p.realm,maxHp:p.hp,currentHp:p.hp,attack:p.attack,defence:p.defence,isBracing:false,isStunned:false,defenceDebuffMultiplier:1.0,defenceDebuffUntil:0,attackDebuffMultiplier:1.0,attackDebuffUntil:0,realmSkillLastUsed:0,gold:p.gold}
-          setOpponent(opp); opponentRef.current=opp; setPhase('fighting'); phaseRef.current='fighting'
-          setOppDisconnected(false); if(disconnectTimer) clearTimeout(disconnectTimer)
-          addLog('⚔️ Battle started! Dodge the attacks!'); animFrameRef.current=requestAnimationFrame(draw)
+          // Use currentHp if provided (reconnect), otherwise use maxHp (fresh join)
+          const startHp = p.currentHp ?? p.hp
+          const opp: Fighter={userId:key,name:p.name,realm:p.realm,maxHp:p.hp,currentHp:startHp,attack:p.attack,defence:p.defence,isBracing:false,isStunned:false,defenceDebuffMultiplier:1.0,defenceDebuffUntil:0,attackDebuffMultiplier:1.0,attackDebuffUntil:0,realmSkillLastUsed:0,gold:p.gold}
+          setOpponent(opp); opponentRef.current=opp
+          // Only transition to fighting on first join (not reconnect)
+          if(phaseRef.current!=='fighting'){
+            setPhase('fighting'); phaseRef.current='fighting'
+            addLog('⚔️ Battle started! Dodge the attacks!'); animFrameRef.current=requestAnimationFrame(draw)
+          } else {
+            addLog('🔄 Opponent reconnected!')
+          }
+          setOppDisconnected(false); if(disconnectTimer){ clearInterval(disconnectTimer); disconnectTimer=null }
         }
       })
       channel.on('presence',{event:'leave'},({key}:{key:string})=>{
-        if(key!==user.id){
+        if(key!==user.id&&phaseRef.current==='fighting'){
           setOppDisconnected(true); addLog('⚠️ Opponent disconnected — 5s to reconnect...')
           let count=RECONNECT_WINDOW/1000; setReconnectTimer(count)
-          disconnectTimer=setInterval(()=>{ count--; setReconnectTimer(count); if(count<=0){ clearInterval(disconnectTimer!); const opp=opponentRef.current; const me2=meRef.current; if(opp&&me2) endBattle(user.id,opp,me2) }},1000)
+          disconnectTimer=setInterval(()=>{ count--; setReconnectTimer(count); if(count<=0){ clearInterval(disconnectTimer!); disconnectTimer=null; const opp=opponentRef.current; const me2=meRef.current; if(opp&&me2&&phaseRef.current==='fighting') endBattle(user.id,opp,me2) }},1000)
         }
       })
       channel.on('broadcast',{event:'move'},({payload}:{payload:{userId:string,x:number,y:number,facing:number}})=>{
@@ -418,7 +434,7 @@ export default function BattlePage() {
         projectilesRef.current.push(proj)
         audioManager.playSFX('hit')
       })
-      channel.subscribe(async(status)=>{ if(status==='SUBSCRIBED') await channel.track({name:data.character?.name??'Unknown',hp,attack,defence,gold,realm}) })
+      channel.subscribe(async(status)=>{ if(status==='SUBSCRIBED') await channel.track({name:data.character?.name??'Unknown',hp,attack,defence,gold,realm,currentHp:myFighter.currentHp}) })
     }
     const onKeyDown=(e: KeyboardEvent)=>{ keysRef.current.add(e.key); if(e.code==='Space'){e.preventDefault();handleBraceRef.current()} if(e.code==='KeyQ'){e.preventDefault();handleRealmSkillRef.current()} }
     const onKeyUp=(e: KeyboardEvent)=>keysRef.current.delete(e.key)
@@ -429,12 +445,16 @@ export default function BattlePage() {
   },[battleId,draw,endBattle])
 
   function fireProj(actionType: string, proj: Projectile, extra: Record<string,unknown>={}) {
-    channelRef.current?.send({ type:'broadcast', event:'projectile', payload:{ actionType, realm, fromX:proj.originX, fromY:proj.originY, toX:proj.targetX, toY:proj.targetY, targetId:proj.targetId, damage:proj.damage, ...extra } })
+    const myRealm = meRef.current?.realm ?? 'academia'
+    channelRef.current?.send({ type:'broadcast', event:'projectile', payload:{ actionType, realm: myRealm, fromX:proj.originX, fromY:proj.originY, toX:proj.targetX, toY:proj.targetY, targetId:proj.targetId, damage:proj.damage, ...extra } })
   }
 
   function handleStrike() {
     const m=meRef.current; const opp=opponentRef.current
     if(!m||!opp||phaseRef.current!=='fighting'||m.isStunned) return
+    const now=Date.now()
+    if(now-lastStrikeRef.current<STRIKE_COOLDOWN_MS) return
+    lastStrikeRef.current=now
     const mp=myPosRef.current; const op=oppPosRef.current
     if(distXY(mp.x,mp.y,op.x,op.y)>MELEE_RANGE||!hasLOS(mp.x,mp.y,op.x,op.y)){addLog('⚔️ Too far!');return}
     const damage=calcDamage(m.attack*m.attackDebuffMultiplier,opp.defence*opp.defenceDebuffMultiplier,1.0,opp.isBracing)
@@ -447,13 +467,15 @@ export default function BattlePage() {
     setBracingUntil(Date.now()+1000); setMe(prev=>prev?{...prev,isBracing:true}:prev)
     setTimeout(()=>setMe(prev=>prev?{...prev,isBracing:false}:prev),1000); addLog('🛡️ Braced!')
     audioManager.playSFX('dodge')
-    channelRef.current?.send({type:'broadcast',event:'projectile',payload:{actionType:'brace',realm,fromX:0,fromY:0,toX:0,toY:0,targetId:opponentRef.current?.userId,damage:0}})
+    const myRealm2 = meRef.current?.realm ?? 'academia'
+    channelRef.current?.send({type:'broadcast',event:'projectile',payload:{actionType:'brace',realm:myRealm2,fromX:0,fromY:0,toX:0,toY:0,targetId:opponentRef.current?.userId,damage:0}})
   }
 
   function handleRealmSkill() {
     const m=meRef.current; const opp=opponentRef.current
     if(!m||!opp||phaseRef.current!=='fighting'||m.isStunned) return
-    const skill=REALM_SKILLS[realm]; if(!skill) return
+    const myRealm=m.realm
+    const skill=REALM_SKILLS[myRealm]; if(!skill) return
     const cooldownMs=skill.cooldown*1000; if(Date.now()-m.realmSkillLastUsed<cooldownMs) return
     const mp=myPosRef.current; const op=oppPosRef.current
     const d=distXY(mp.x,mp.y,op.x,op.y); const los=hasLOS(mp.x,mp.y,op.x,op.y)
@@ -463,7 +485,7 @@ export default function BattlePage() {
     const ea=m.attack*m.attackDebuffMultiplier; const ed=opp.defence*opp.defenceDebuffMultiplier
     if(skill.multiplier){
       const damage=calcDamage(ea,ed,skill.multiplier,opp.isBracing)
-      const proj=createRealmProjectile(realm,mp.x,mp.y,op.x,op.y,opp.userId,damage)
+      const proj=createRealmProjectile(myRealm,mp.x,mp.y,op.x,op.y,opp.userId,damage)
       const stunEffect=skill.stunChance&&Math.random()<skill.stunChance?'stun':undefined
       audioManager.playSFX('playerAttack'); projectilesRef.current.push(proj); fireProj('realm_offensive',proj,stunEffect?{effect:stunEffect}:{}); addLog(`${skill.icon} ${skill.name}!`)
     }
@@ -472,19 +494,18 @@ export default function BattlePage() {
       const proj=createHealPulse(mp.x,mp.y,mp.x,mp.y,m.userId,healAmount); proj.noDodge=true
       const newHp = Math.min(m.maxHp, m.currentHp + healAmount)
       setMe(prev=>prev?{...prev,currentHp:newHp}:prev)
-      // Sync healed HP to opponent so their bar updates
       channelRef.current?.send({ type:'broadcast', event:'hp_sync', payload:{ userId: userIdRef.current, currentHp: newHp } })
       projectilesRef.current.push(proj); fireProj('realm_heal',proj,{effect:'heal'}); addLog(`${skill.icon} Healed ${healAmount}!`)
     }
     if(skill.defenceDebuff){
-      const proj=createRealmProjectile(realm,mp.x,mp.y,op.x,op.y,opp.userId,0)
+      const proj=createRealmProjectile(myRealm,mp.x,mp.y,op.x,op.y,opp.userId,0)
       const until=now2+(skill.debuffDuration??2)*1000
       setOpponent(prev=>prev?{...prev,defenceDebuffMultiplier:1-skill.defenceDebuff!,defenceDebuffUntil:until}:prev)
       setTimeout(()=>setOpponent(prev=>prev?{...prev,defenceDebuffMultiplier:1.0}:prev),skill.debuffDuration!*1000)
       projectilesRef.current.push(proj); fireProj('realm_debuff',proj,{effect:'defence_debuff'}); addLog(`${skill.icon} ${skill.name}!`)
     }
     if(skill.attackDebuff){
-      const proj=createRealmProjectile(realm,mp.x,mp.y,op.x,op.y,opp.userId,0)
+      const proj=createRealmProjectile(myRealm,mp.x,mp.y,op.x,op.y,opp.userId,0)
       const until=now2+(skill.debuffDuration??3)*1000
       setOpponent(prev=>prev?{...prev,attackDebuffMultiplier:1-skill.attackDebuff!,attackDebuffUntil:until}:prev)
       setTimeout(()=>setOpponent(prev=>prev?{...prev,attackDebuffMultiplier:1.0}:prev),skill.debuffDuration!*1000)
@@ -500,7 +521,7 @@ export default function BattlePage() {
   handleStrikeRef.current = handleStrike
   handleBraceRef.current = handleBrace
   handleRealmSkillRef.current = handleRealmSkill
-  const realmSkill=REALM_SKILLS[realm]
+  const realmSkill=REALM_SKILLS[myStats?.realm??'academia']
 
   function HpBar({fighter,flip=false}:{fighter:Fighter;flip?:boolean}) {
     const pct=Math.round((fighter.currentHp/fighter.maxHp)*100)

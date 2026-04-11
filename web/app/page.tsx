@@ -226,11 +226,11 @@ export default function LandingPage() {
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <CTAButtonGold onClick={() => router.push('/auth')}>
+          <CTAButtonGold onClick={() => router.push('/auth?mode=signup')}>
             CREATE ACCOUNT
           </CTAButtonGold>
-          <CTAButtonOutline onClick={() => router.push('/score')}>
-            TRY THE SCORER
+          <CTAButtonOutline onClick={() => router.push('/auth?mode=signin')}>
+            SIGN IN
           </CTAButtonOutline>
         </div>
 

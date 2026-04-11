@@ -582,7 +582,8 @@ export default function MapPage() {
             width={typeof window !== 'undefined' ? Math.min(window.innerWidth, 1400) : 1200}
             height={typeof window !== 'undefined' ? Math.min(window.innerHeight - 60, 800) : 700}
             onClick={handleCanvasClick}
-            style={{ display: 'block', cursor: 'crosshair' }}
+            onContextMenu={e => e.preventDefault()}
+            style={{ display: 'block', cursor: 'crosshair', userSelect: 'none' }}
           />
           <div style={{ position: 'absolute', bottom: '12px', left: '12px', fontFamily: '"Crimson Text", serif', color: 'rgba(155,114,207,0.45)', fontSize: '0.78rem' }}>
             Move: WASD · Walk to map edge to travel · Get close to a player to challenge · Walk into the lair to fight the boss
