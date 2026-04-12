@@ -13,21 +13,19 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, realm, power, stats } = await request.json()
-    if (!realm || power === undefined || !stats) {
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
+
+    if (!trimmedName || !realm || power === undefined || !stats) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     // Name validation
-    if (!name || typeof name !== 'string') {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
-    }
-
-    const formatError = validateNameFormat(name)
+    const formatError = validateNameFormat(trimmedName)
     if (formatError) {
       return NextResponse.json({ error: formatError }, { status: 400 })
     }
 
-    if (containsProfanity(name)) {
+    if (containsProfanity(trimmedName)) {
       return NextResponse.json({ error: 'Name contains disallowed words' }, { status: 400 })
     }
 
@@ -35,7 +33,7 @@ export async function POST(request: NextRequest) {
     const { data: existingName } = await supabase
       .from('characters')
       .select('user_id')
-      .ilike('name', name.trim())
+      .ilike('name', trimmedName)
       .neq('user_id', user.id)
       .maybeSingle()
 
@@ -75,7 +73,7 @@ export async function POST(request: NextRequest) {
       .from('characters')
       .upsert({
         user_id: user.id,
-        name: name || null,
+        name: trimmedName || null,
         realms: updatedRealms,
         total_power: totalPower,
         gold: updatedGold,
@@ -83,7 +81,8 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_id' })
 
     if (upsertError) {
-      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+      console.error('Upsert error:', upsertError)
+      return NextResponse.json({ error: 'Failed to save character' }, { status: 500 })
     }
 
     return NextResponse.json({
