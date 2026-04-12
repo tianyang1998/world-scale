@@ -10,11 +10,11 @@ export function validateNameFormat(name: string): string | null {
 }
 
 // Server-side only — not imported in client components
-export const PROFANITY_LIST: string[] = [
+export const PROFANITY_LIST: readonly string[] = [
   "ass", "asshole", "bastard", "bitch", "bollocks", "bullshit",
   "cock", "coon", "crap", "cunt", "damn", "dick", "dildo",
   "dyke", "fag", "faggot", "fuck", "fucker", "fucking",
-  "homo", "jackass", "jerk", "kike", "motherfucker", "niger",
+  "homo", "jackass", "jerk", "kike", "motherfucker",
   "nigga", "nigger", "piss", "prick", "pussy", "retard",
   "shit", "shithead", "slut", "spic", "twat", "wank", "wanker",
   "whore", "chink", "gook", "wetback", "tranny", "trannies",
@@ -22,11 +22,13 @@ export const PROFANITY_LIST: string[] = [
   "nonce", "spunk", "cum", "cumshot", "anus", "rectum",
 ];
 
+// Pre-compiled for performance — rebuilt once at module load
+const PROFANITY_REGEX = new RegExp(
+  `\\b(${PROFANITY_LIST.join("|")})\\b`,
+  "i"
+);
+
 /** Returns true if the name contains a profanity word (whole-word, case-insensitive). */
 export function containsProfanity(name: string): boolean {
-  const lower = name.toLowerCase();
-  return PROFANITY_LIST.some(word => {
-    const pattern = new RegExp(`\\b${word}\\b`, "i");
-    return pattern.test(lower);
-  });
+  return PROFANITY_REGEX.test(name);
 }
