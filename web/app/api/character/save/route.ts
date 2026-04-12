@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
       }, { onConflict: 'user_id' })
 
     if (upsertError) {
+      // Postgres unique violation — name taken by a concurrent save
+      if (upsertError.code === '23505') {
+        return NextResponse.json({ error: 'Name already taken — please choose another' }, { status: 400 })
+      }
       console.error('Upsert error:', upsertError)
       return NextResponse.json({ error: 'Failed to save character' }, { status: 500 })
     }
