@@ -81,25 +81,25 @@ export default function Home() {
   async function handleSubmit() {
     setError(""); setLoading(true); setScore(null); setSaveMsg(null);
 
-    let body: Record<string, string | number> = { realm, name: charName };
+    let body: Record<string, string | number> = { realm, name: charName.trim() };
 
     if (realm === "academia") {
-      body = { realm, name: charName, h_index: hIndex, total_citations: citations,
+      body = { realm, name: charName.trim(), h_index: hIndex, total_citations: citations,
                years_active: years, pub_count: pubs, i10_index: i10,
                recent_citations: recentCit, institution_tier: instTier };
     } else if (realm === "tech") {
-      body = { realm, name: charName, repos, stars, followers, commits, years_active: tYears };
+      body = { realm, name: charName.trim(), repos, stars, followers, commits, years_active: tYears };
     } else if (realm === "medicine") {
-      body = { realm, name: charName, years_active: medYears, papers: medPapers,
+      body = { realm, name: charName.trim(), years_active: medYears, papers: medPapers,
                citations: medCitations, patients_treated: medPatients,
                specialization_tier: medSpecTier, hospital_tier: medHospTier,
                board_certifications: medBoardCerts };
     } else if (realm === "creative") {
-      body = { realm, name: charName, years_active: creYears, major_works: creMajorWorks,
+      body = { realm, name: charName.trim(), years_active: creYears, major_works: creMajorWorks,
                awards: creAwards, audience_size: creAudience,
                exhibitions_or_releases: creExhibitions };
     } else if (realm === "law") {
-      body = { realm, name: charName, years_active: lawYears, notable_cases: lawCases,
+      body = { realm, name: charName.trim(), years_active: lawYears, notable_cases: lawCases,
                cases_won: lawWins, bar_admissions: lawAdmissions,
                firm_tier: lawFirmTier, specialization_tier: lawSpecTier };
     }
