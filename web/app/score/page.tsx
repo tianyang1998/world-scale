@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CharacterCard from "@/components/CharacterCard";
 import { CharacterScore } from "@/lib/types";
 import { createClient } from "@/lib/supabase-client";
+import { validateNameFormat } from "@/lib/nameValidation";
 
 type Realm = "academia" | "tech" | "medicine" | "creative" | "law";
 
@@ -28,6 +29,7 @@ export default function Home() {
   const [saveMsg, setSaveMsg]     = useState<string | null>(null);
 
   const [charName, setCharName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // academia fields
   const [hIndex,    setHIndex]    = useState("");
@@ -176,8 +178,18 @@ export default function Home() {
             {/* Character name */}
             <div style={{ ...fieldStyle, marginBottom: "24px", paddingBottom: "24px", borderBottom: "0.5px solid #f0f0f0" }}>
               <label style={{ ...labelStyle, fontSize: "13px", fontWeight: 600, color: "#444" }}>Your name</label>
-              <input style={inputStyle} value={charName} onChange={e => setCharName(e.target.value)} placeholder="Dr. Jane Smith" />
-              <span style={{ fontSize: "11px", color: "#bbb", marginTop: "4px" }}>Your character's display name across all realms</span>
+              <input
+                style={inputStyle}
+                value={charName}
+                onChange={e => {
+                  setCharName(e.target.value);
+                  setNameError(validateNameFormat(e.target.value));
+                }}
+                placeholder="Dr. Jane Smith"
+              />
+              <span style={{ fontSize: "11px", color: nameError ? "#A32D2D" : "#bbb", marginTop: "4px" }}>
+                {nameError ?? "2–30 characters. Letters, numbers, spaces, - ' . allowed."}
+              </span>
             </div>
 
             {/* Realm selector */}
@@ -298,7 +310,7 @@ export default function Home() {
               </div>
             )}
 
-            <button onClick={handleSubmit} disabled={loading}
+            <button onClick={handleSubmit} disabled={loading || !!nameError || charName.trim().length < 2}
               style={{ marginTop: "20px", width: "100%", padding: "12px", borderRadius: "8px", border: "none", background: loading ? "#ccc" : "#111", color: "#fff", fontSize: "14px", fontWeight: 600, cursor: loading ? "default" : "pointer" }}>
               {loading ? "Calculating…" : "Generate character →"}
             </button>
