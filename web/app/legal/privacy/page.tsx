@@ -19,7 +19,7 @@ export default function PrivacyPage() {
 
       <div className="prose" style={{ maxWidth: '700px', margin: '0 auto' }}>
         <h1>Privacy Policy</h1>
-        <p className="revised">Last Revised: April 8, 2026</p>
+        <p className="revised">Last Revised: April 12, 2026</p>
 
         <h2>1. Introduction</h2>
         <p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           <li>To run multiplayer features: world map presence, PvP battles, and PvE raids.</li>
           <li>To display your rank on the public leaderboard.</li>
         </ul>
-        <p>We do not use your data for advertising, and we do not sell your data to any third party.</p>
+        <p>We do not use your data for advertising, and we do not sell your data to any third party. We also do not &ldquo;share&rdquo; your data with third parties for cross-context behavioral advertising as defined under the California Consumer Privacy Act (CCPA) and similar state laws. Your credentials and character data are processed solely by Supabase and Vercel as described in &sect;4, for the purpose of operating the game.</p>
 
         <h2>4. Third-Party Services</h2>
         <ul>
@@ -86,13 +86,22 @@ export default function PrivacyPage() {
           <li><strong>Correction</strong> — update your professional credentials at any time via the Score page.</li>
           <li><strong>Deletion</strong> — permanently delete your account and all associated data using the &ldquo;Delete Account&rdquo; button on your Profile page.</li>
           <li><strong>Portability</strong> — request your data in a portable format by emailing <a href="mailto:privacy@worldscalegame.com">privacy@worldscalegame.com</a>.</li>
+          <li><strong>Opt-Out Signals (GPC)</strong> — We honor Global Privacy Control (GPC) browser signals as a valid opt-out of data sharing for advertising or cross-context behavioral tracking. Because we do not engage in such sharing, a GPC signal has no practical effect on how we process your data &mdash; but we recognize and respect it as required by California, Colorado, Connecticut, and other applicable state laws effective January 1, 2026.</li>
         </ul>
 
-        <h2>7. Children</h2>
+        <h2>7. Children &amp; Sensitive Data</h2>
         <p>
-          World Scale is not intended for users under the age of 13. We do not knowingly collect personal data
-          from children under 13. If you believe a child has provided us with their data, please contact us
-          at <a href="mailto:privacy@worldscalegame.com">privacy@worldscalegame.com</a> and we will delete it.
+          World Scale is intended for working professionals and is not designed for users under the age of 16.
+          We do not knowingly collect personal data from anyone under 16. If you believe a minor has provided
+          us with their data, please contact us at{' '}
+          <a href="mailto:privacy@worldscalegame.com">privacy@worldscalegame.com</a> and we will delete it promptly.
+        </p>
+        <p>
+          The professional credentials you enter (such as publication counts, GitHub statistics, or years of
+          practice) are not &ldquo;sensitive personal data&rdquo; as defined under the General Data Protection
+          Regulation (GDPR) or CCPA. Sensitive categories under those laws include health records, biometric
+          data, racial or ethnic origin, financial account details, and similar categories. Aggregate
+          professional metrics do not fall within these categories.
         </p>
 
         <h2>8. Changes to This Policy</h2>
