@@ -123,10 +123,10 @@ export default function Home() {
       const res = await fetch("/api/character/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: charName, realm: score.realm, power: score.power, stats: score.stats }),
+        body: JSON.stringify({ name: charName.trim(), realm: score.realm, power: score.power, stats: score.stats }),
       });
       const data = await res.json();
-      if (!res.ok) { setSaveMsg("Failed to save. Please try again."); }
+      if (!res.ok) { setSaveMsg(data.error ?? "Failed to save. Please try again."); }
       else { setSaveMsg(`Saved! Total power: ${data.total_power.toLocaleString()} · +${data.gold_earned} gold`); }
     } catch {
       setSaveMsg("Network error — could not save.");
