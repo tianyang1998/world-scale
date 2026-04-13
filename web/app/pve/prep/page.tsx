@@ -32,6 +32,7 @@ function PvEPrepInner() {
 
   const [selectedRealm, setSelectedRealm] = useState<string>('')
   const [selectedBroadcast, setSelectedBroadcast] = useState<BroadcastTier>(BROADCAST_TIERS[0])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -88,7 +89,10 @@ function PvEPrepInner() {
       body: JSON.stringify({ battle_id: battleId, hp, attack, defence, realm: selectedRealm }),
     })
     const statsData = await statsRes.json()
-    if (!statsData.success) return // stat validation failed — stay on page
+    if (!statsData.success) {
+      setError(statsData.error ?? 'Failed to save stats — please try again.')
+      return
+    }
 
     // Apply broadcast upgrade if selected
     if (selectedBroadcast.cost > 0) {
@@ -257,6 +261,13 @@ function PvEPrepInner() {
         <div style={{ textAlign: 'center', marginBottom: '1.5rem', fontFamily: '"Crimson Text", serif', color: '#4a3860', fontSize: '0.85rem', fontStyle: 'italic' }}>
           Other players of the same tier will join you in the lobby.
         </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ marginBottom: '1rem', padding: '10px 14px', background: 'rgba(163,45,45,0.15)', border: '1px solid rgba(163,45,45,0.4)', borderRadius: '8px', fontFamily: '"Crimson Text", serif', fontSize: '0.9rem', color: '#f09595', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
 
         {/* Enter button */}
         <button
