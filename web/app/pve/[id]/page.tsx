@@ -790,7 +790,7 @@ export default function PvEPage() {
   }
 
   function startBattle() {
-    if (!isLeaderRef.current) return
+    // Any party member can start — the leader runs boss AI, non-leaders just broadcast
     // Reset boss timers — grace period before first attack
     bossStateRef.current.lastAttackAt = Date.now() + 3000 // first attack after 3s
     bossStateRef.current.lastSkillAt  = Date.now() + 6000 // first skill after 6s
@@ -1058,12 +1058,41 @@ export default function PvEPage() {
       channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           // First to subscribe becomes leader
-          const state = channel.presenceState()
-          isLeaderRef.current = Object.keys(state).length === 0
+          const stateBefore = channel.presenceState()
+          isLeaderRef.current = Object.keys(stateBefore).length === 0
           await channel.track({ name: data.character?.name ?? 'Unknown', hp, attack, defence, gold, realm })
+
+          // Populate team from players already in the lobby (missed join events)
+          const stateAfter = channel.presenceState()
+          setTeam(prev => {
+            let next = [...prev]
+            Object.entries(stateAfter).forEach(([key, presences]) => {
+              if (key === user.id) return // already added self
+              if (next.find(f => f.userId === key)) return
+              const p = (presences as { name: string; hp: number; attack: number; defence: number; gold: number; realm: string }[])[0]
+              if (!p) return
+              const spawnIdx = Math.min(next.length, SPAWN_POSITIONS.length - 1)
+              const newFighter: TeamFighter = {
+                userId: key, name: p.name, realm: p.realm,
+                maxHp: p.hp, currentHp: p.hp,
+                attack: p.attack, defence: p.defence,
+                isBracing: false, isStunned: false, isDead: false,
+                defenceDebuffMultiplier: 1.0, attackDebuffMultiplier: 1.0,
+                realmSkillLastUsed: 0,
+                gold: p.gold, x: SPAWN_POSITIONS[spawnIdx].x, y: SPAWN_POSITIONS[spawnIdx].y,
+              }
+              positionsRef.current.set(key, { ...SPAWN_POSITIONS[spawnIdx] })
+              next = [...next, newFighter]
+              addLog(`⚔️ ${p.name} is already in the party!`)
+            })
+            teamRef.current = next
+            setPartyCount(next.length)
+            return next
+          })
+
           addLog(isLeaderRef.current
             ? '👑 You are the party leader. Start when ready.'
-            : '⏳ Waiting for the party leader to start...'
+            : '⚔️ You joined the party. Anyone can begin the battle.'
           )
         }
       })
@@ -1357,17 +1386,11 @@ export default function PvEPage() {
             <p style={{ fontFamily: '"Crimson Text", serif', color: '#4a3860', fontSize: '0.85rem', margin: '0 0 1.5rem', fontStyle: 'italic' }}>
               Other players in your tier can join by entering the boss zone on the map.
             </p>
-            {isLeaderRef.current ? (
-              <button
-                onClick={startBattle}
-                style={{ padding: '0.75rem 2.5rem', background: 'linear-gradient(135deg, rgba(163,45,45,0.5), rgba(99,57,134,0.5))', border: '1px solid rgba(163,45,45,0.5)', borderRadius: '8px', color: '#e8e0f0', fontFamily: '"Cinzel", serif', fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                ⚔️ Begin Battle
-              </button>
-            ) : (
-              <p className="pulse" style={{ fontFamily: '"Crimson Text", serif', color: '#6b5c80', fontSize: '0.9rem', margin: 0 }}>
-                Waiting for the party leader to start...
-              </p>
-            )}
+            <button
+              onClick={startBattle}
+              style={{ padding: '0.75rem 2.5rem', background: 'linear-gradient(135deg, rgba(163,45,45,0.5), rgba(99,57,134,0.5))', border: '1px solid rgba(163,45,45,0.5)', borderRadius: '8px', color: '#e8e0f0', fontFamily: '"Cinzel", serif', fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer' }}>
+              ⚔️ Begin Battle
+            </button>
           </div>
         )}
 
