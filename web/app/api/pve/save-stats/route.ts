@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient, createServiceSupabaseClient } from '@/lib/supabase-server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Use session client only for auth — battle queries use service role to bypass RLS
+    const sessionClient = await createServerSupabaseClient()
+    const { data: { user }, error: authError } = await sessionClient.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const supabase = createServiceSupabaseClient()
 
     const { battle_id, hp, attack, defence, realm } = await request.json()
     if (!battle_id || !hp || !attack || !defence || !realm) {
