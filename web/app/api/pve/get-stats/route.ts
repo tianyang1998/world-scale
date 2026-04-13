@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!battle.player_ids.includes(user.id)) {
-      return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
+      return NextResponse.json({ error: 'Not a participant — join via the prep page first' }, { status: 403 })
     }
 
     const stats = battle.player_stats?.[user.id]

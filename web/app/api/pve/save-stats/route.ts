@@ -26,8 +26,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Battle not found' }, { status: 404 })
     }
 
+    // If the joiner is not yet in player_ids, add them (up to 3 players)
     if (!battle.player_ids.includes(user.id)) {
-      return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
+      if (battle.player_ids.length >= 3) {
+        return NextResponse.json({ error: 'Party is full (max 3 players)' }, { status: 403 })
+      }
+      const { error: joinError } = await supabase
+        .from('pve_battles')
+        .update({ player_ids: [...battle.player_ids, user.id] })
+        .eq('id', battle_id)
+      if (joinError) {
+        return NextResponse.json({ error: 'Failed to join battle' }, { status: 500 })
+      }
     }
 
     // Validate stats sum against character total_power
