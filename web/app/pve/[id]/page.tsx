@@ -1069,7 +1069,7 @@ export default function PvEPage() {
             Object.entries(stateAfter).forEach(([key, presences]) => {
               if (key === user.id) return // already added self
               if (next.find(f => f.userId === key)) return
-              const p = (presences as { name: string; hp: number; attack: number; defence: number; gold: number; realm: string }[])[0]
+              const p = (presences as unknown as { name: string; hp: number; attack: number; defence: number; gold: number; realm: string }[])[0]
               if (!p) return
               const spawnIdx = Math.min(next.length, SPAWN_POSITIONS.length - 1)
               const newFighter: TeamFighter = {
