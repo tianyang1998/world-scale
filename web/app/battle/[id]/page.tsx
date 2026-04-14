@@ -464,6 +464,7 @@ export default function BattlePage() {
 
   function handleBrace() {
     const m=meRef.current; if(!m||phaseRef.current!=='fighting'||m.isStunned) return
+    if(m.isBracing) return // ignore key-repeat while already bracing
     setBracingUntil(Date.now()+1000); setMe(prev=>prev?{...prev,isBracing:true}:prev)
     setTimeout(()=>setMe(prev=>prev?{...prev,isBracing:false}:prev),1000); addLog('🛡️ Braced!')
     audioManager.playSFX('dodge')
