@@ -81,7 +81,6 @@ export default function BattlePage() {
   const [inRange, setInRange] = useState(false)
   const [hasLOSState, setHasLOSState] = useState(false)
   const [realmCooldownUntil, setRealmCooldownUntil] = useState(0)
-  const [bracingUntil, setBracingUntil] = useState(0)
   const [now, setNow] = useState(Date.now())
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -102,6 +101,8 @@ export default function BattlePage() {
   const hitFlashesRef = useRef<HitFlash[]>([])
   const lastStrikeRef = useRef(0)
   const isBracingRef = useRef(false)
+  const bracingUntilRef = useRef(0)
+  const battleEndedRef = useRef(false)
   const STRIKE_COOLDOWN_MS = 800
 
   useEffect(() => {
@@ -117,8 +118,13 @@ export default function BattlePage() {
   function addLog(msg: string) { setLog(prev=>[...prev.slice(-50),msg]) }
 
   const endBattle = useCallback(async(winnerId: string, loser: Fighter, _winner: Fighter)=>{
-    setPhase('ended'); setWinner(winnerId===userIdRef.current?'you':'opponent')
+    if(battleEndedRef.current) return
+    battleEndedRef.current = true
+    // Broadcast winner to opponent so both sides resolve correctly
+    channelRef.current?.send({ type:'broadcast', event:'battle_end', payload:{ winnerId } })
+    setPhase('ended'); phaseRef.current='ended'
     const didWin = winnerId===userIdRef.current
+    setWinner(didWin?'you':'opponent')
     audioManager.playBGM(didWin ? 'win' : 'lose')
     audioManager.playSFX(didWin ? 'victory' : 'defeat')
     const gold = calcGoldTransfer(loser.gold); setGoldDelta(didWin?gold:-gold)
@@ -127,7 +133,7 @@ export default function BattlePage() {
 
   const applyDamageToMe = useCallback((damage: number, attackerId: string, proj: Projectile)=>{
     const currentMe = meRef.current; if (!currentMe) return
-    const bracingNow = Date.now() < bracingUntil
+    const bracingNow = Date.now() < bracingUntilRef.current
     const reduced = bracingNow ? Math.round(damage*0.7) : damage
     const newHp = Math.max(0, currentMe.currentHp - reduced)
     hitFlashesRef.current.push({ x:myPosRef.current.x, y:myPosRef.current.y, color:proj.color, age:0 })
@@ -136,7 +142,7 @@ export default function BattlePage() {
     // Sync my new HP to opponent so their bar updates
     channelRef.current?.send({ type:'broadcast', event:'hp_sync', payload:{ userId: userIdRef.current, currentHp: newHp } })
     if (newHp<=0) endBattle(attackerId, currentMe, opponentRef.current!)
-  },[bracingUntil, endBattle])
+  },[endBattle])
 
   const applyDamageToOpp = useCallback((damage: number, proj: Projectile)=>{
     const opp = opponentRef.current; const currentMe = meRef.current; if (!opp||!currentMe) return
@@ -435,9 +441,26 @@ export default function BattlePage() {
         projectilesRef.current.push(proj)
         audioManager.playSFX('hit')
       })
+      // Opponent broadcasts battle_end — resolve our side without calling endBattle again
+      channel.on('broadcast',{event:'battle_end'},({payload}:{payload:{winnerId:string}})=>{
+        if(battleEndedRef.current) return
+        battleEndedRef.current=true
+        const didWin=payload.winnerId===userIdRef.current
+        setPhase('ended'); phaseRef.current='ended'
+        setWinner(didWin?'you':'opponent')
+        audioManager.playBGM(didWin?'win':'lose')
+        audioManager.playSFX(didWin?'victory':'defeat')
+        const loser=didWin?opponentRef.current:meRef.current
+        if(loser){ const gold=calcGoldTransfer(loser.gold); setGoldDelta(didWin?gold:-gold) }
+      })
       channel.subscribe(async(status)=>{ if(status==='SUBSCRIBED') await channel.track({name:data.character?.name??'Unknown',hp,attack,defence,gold,realm,currentHp:myFighter.currentHp}) })
     }
-    const onKeyDown=(e: KeyboardEvent)=>{ keysRef.current.add(e.key); if(e.code==='Space'){e.preventDefault();handleBraceRef.current()} if(e.code==='KeyQ'){e.preventDefault();handleRealmSkillRef.current()} }
+    const onKeyDown=(e: KeyboardEvent)=>{
+      if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','KeyQ'].includes(e.code)) e.preventDefault()
+      keysRef.current.add(e.key)
+      if(e.code==='Space') handleBraceRef.current()
+      if(e.code==='KeyQ') handleRealmSkillRef.current()
+    }
     const onKeyUp=(e: KeyboardEvent)=>keysRef.current.delete(e.key)
     const onContext=(e: MouseEvent)=>{ e.preventDefault(); handleStrikeRef.current() }
     window.addEventListener('keydown',onKeyDown); window.addEventListener('keyup',onKeyUp); window.addEventListener('contextmenu',onContext)
@@ -466,9 +489,9 @@ export default function BattlePage() {
   function handleBrace() {
     const m=meRef.current; if(!m||phaseRef.current!=='fighting'||m.isStunned) return
     if(isBracingRef.current) return // synchronous guard — meRef.current.isBracing lags React renders
-    isBracingRef.current=true
-    setBracingUntil(Date.now()+1000); setMe(prev=>prev?{...prev,isBracing:true}:prev)
-    setTimeout(()=>{ isBracingRef.current=false; setMe(prev=>prev?{...prev,isBracing:false}:prev) },1000); addLog('🛡️ Braced!')
+    isBracingRef.current=true; bracingUntilRef.current=Date.now()+1000
+    setMe(prev=>prev?{...prev,isBracing:true}:prev)
+    setTimeout(()=>{ isBracingRef.current=false; bracingUntilRef.current=0; setMe(prev=>prev?{...prev,isBracing:false}:prev) },1000); addLog('🛡️ Braced!')
     audioManager.playSFX('dodge')
     const myRealm2 = meRef.current?.realm ?? 'academia'
     channelRef.current?.send({type:'broadcast',event:'projectile',payload:{actionType:'brace',realm:myRealm2,fromX:0,fromY:0,toX:0,toY:0,targetId:opponentRef.current?.userId,damage:0}})
