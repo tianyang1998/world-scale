@@ -101,6 +101,7 @@ export default function BattlePage() {
   const projectilesRef = useRef<Projectile[]>([])
   const hitFlashesRef = useRef<HitFlash[]>([])
   const lastStrikeRef = useRef(0)
+  const isBracingRef = useRef(false)
   const STRIKE_COOLDOWN_MS = 800
 
   useEffect(() => {
@@ -464,9 +465,10 @@ export default function BattlePage() {
 
   function handleBrace() {
     const m=meRef.current; if(!m||phaseRef.current!=='fighting'||m.isStunned) return
-    if(m.isBracing) return // ignore key-repeat while already bracing
+    if(isBracingRef.current) return // synchronous guard — meRef.current.isBracing lags React renders
+    isBracingRef.current=true
     setBracingUntil(Date.now()+1000); setMe(prev=>prev?{...prev,isBracing:true}:prev)
-    setTimeout(()=>setMe(prev=>prev?{...prev,isBracing:false}:prev),1000); addLog('🛡️ Braced!')
+    setTimeout(()=>{ isBracingRef.current=false; setMe(prev=>prev?{...prev,isBracing:false}:prev) },1000); addLog('🛡️ Braced!')
     audioManager.playSFX('dodge')
     const myRealm2 = meRef.current?.realm ?? 'academia'
     channelRef.current?.send({type:'broadcast',event:'projectile',payload:{actionType:'brace',realm:myRealm2,fromX:0,fromY:0,toX:0,toY:0,targetId:opponentRef.current?.userId,damage:0}})
