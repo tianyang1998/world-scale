@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { battle_id, winner_id, gold_transferred } = await request.json()
-    if (!battle_id || !winner_id || gold_transferred === undefined) {
+    const { battle_id, gold_transferred } = await request.json()
+    if (!battle_id || gold_transferred === undefined) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -32,7 +32,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, already_processed: true })
     }
 
-    const loser_id = winner_id === battle.player1_id ? battle.player2_id : battle.player1_id
+    // Caller must be a participant — and they are reporting their own death,
+    // so the winner is the other player. Never trust winner_id from the client.
+    const { player1_id, player2_id } = battle
+    if (user.id !== player1_id && user.id !== player2_id) {
+      return NextResponse.json({ error: 'Not a participant' }, { status: 403 })
+    }
+    const winner_id = user.id === player1_id ? player2_id : player1_id
+    const loser_id = user.id
 
     // Fetch both players' gold
     const { data: players } = await supabase

@@ -128,7 +128,10 @@ export default function BattlePage() {
     audioManager.playBGM(didWin ? 'win' : 'lose')
     audioManager.playSFX(didWin ? 'victory' : 'defeat')
     const gold = calcGoldTransfer(loser.gold); setGoldDelta(didWin?gold:-gold)
-    await fetch('/api/battle/end',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ battle_id:battleId, winner_id:winnerId, gold_transferred:gold }) })
+    // Only the loser calls the API — server derives winner_id as the other participant
+    if (!didWin) {
+      await fetch('/api/battle/end',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ battle_id:battleId, gold_transferred:gold }) })
+    }
   },[battleId])
 
   const applyDamageToMe = useCallback((damage: number, attackerId: string, proj: Projectile)=>{

@@ -223,7 +223,6 @@ export default function PvEPage() {
         body: JSON.stringify({
           battle_id: battleId,
           success: teamWon,
-          surviving_player_ids: survivors,
         }),
       })
     }
