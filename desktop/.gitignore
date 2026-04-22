@@ -1,0 +1,14 @@
+# Godot cache
+.godot/
+
+# Git worktrees
+.worktrees/
+
+# Export artifacts
+*.exe
+*.x86_64
+*.apk
+
+# OS
+.DS_Store
+Thumbs.db
