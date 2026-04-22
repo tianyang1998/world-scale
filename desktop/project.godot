@@ -1,0 +1,28 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; but you can edit it manually.
+
+config_version=5
+
+[application]
+
+config/name="WorldScale"
+config/features=PackedStringArray("4.6", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+PlayerData="*res://src/core/player_data.gd"
+GameManager="*res://src/core/game_manager.gd"
+AudioManager="*res://src/core/audio_manager.gd"
+NetworkManager="*res://src/core/network_manager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
