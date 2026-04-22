@@ -7,9 +7,10 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - [x] `gdd/scoring-system.md` — credential input, 5 realms, stat calculation, tier assignment, realm skills, **character name rules**
 - [x] `gdd/battle-system.md` — PvP combat, stat allocation (10% min per stat), damage formula, debuffs, gold transfer
 - [x] `gdd/boss-pve-system.md` — 15 bosses, cooperative raids, boss AI, special attacks, broadcast system
+- [x] `gdd/projectile-system.md` — 12 projectile kinds, movement, dodge vs no-dodge, hit flash, draw shapes
 
 ## Remaining GDDs (in order)
-- [ ] #4 `gdd/projectile-system.md` — 12 projectile kinds, arc interpolation, hit flash, trail effects
+- [ ] #5 `gdd/map-system.md` — 2400×1600 world, top-down view, collision, towns, river/bridge, landmarks, 15 tier themes
 - [ ] #5 `gdd/map-system.md` — 2400×1600 world, top-down view, collision, towns, river/bridge, landmarks, 15 tier themes
 - [ ] #6 `gdd/economy-system.md` — gold flow, insurance, broadcast upgrades, cosmetics store
 - [ ] #7 `gdd/networking-system.md` — Supabase Presence, move sync, challenge/invite flow
