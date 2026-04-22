@@ -86,7 +86,7 @@ One skill per realm, unlocked automatically at character creation:
 |-------|-------|--------|----------|
 | Academia | Deep Research | Opponent defence ×0.75 for 2s | 4s |
 | Tech | Commit Storm | Deal 1.8× attack damage | 4s |
-| Medicine | Clinical Mastery | Heal self for 20% of max HP | 4s |
+| Medicine | Clinical Mastery | Heal self for 20% of max HP *(PvP only — in PvE, heals a selected ally; see boss-pve-system.md §3.5)* | 4s |
 | Creative | Viral Work | Deal 1.2× damage + 30% stun chance for 1s | 3s |
 | Law | Precedent | Opponent attack ×0.80 for 3s | 4s |
 

@@ -195,7 +195,7 @@ scoring — no threshold required beyond choosing a realm:
 |-------|-------|--------|----------|
 | Academia | Deep Research | Reduce opponent defence by 25% for 2s | 4s |
 | Tech | Commit Storm | Deal 1.8× attack damage | 4s |
-| Medicine | Clinical Mastery | Heal 20% of max HP | 4s |
+| Medicine | Clinical Mastery | Heal 20% of caster's max HP — self in PvP, selected ally (or self) in PvE | 4s |
 | Creative | Viral Work | Deal 1.2× damage + 30% stun chance for 1s | 3s |
 | Law | Precedent | Reduce opponent attack by 20% for 3s | 4s |
 
@@ -242,7 +242,25 @@ power = round(raw × 120)
 | Cohort distributions (p25–p99) | Per realm | Makes tier easier/harder to reach for that profession |
 | Log base for years (42) | 42 | Lower = years matter more at high end |
 
-## 8. Acceptance Criteria
+## 8. Character Name Rules
+
+Applied at character creation. Validated client-side (inline feedback) and
+server-side (authoritative gate before upsert).
+
+| Rule | Constraint |
+|------|-----------|
+| Length | 2–30 characters |
+| Allowed characters | Letters, numbers, spaces, `-`, `'`, `.` |
+| Profanity | Blocked via ~50-word whole-word blocklist (case-insensitive) |
+| Uniqueness | Case-insensitive check against `characters.name` in database |
+
+Examples of valid names: `Dr. Jane Smith`, `O'Brien`, `Jean-Luc`.
+
+Server validation order: format → profanity → uniqueness → upsert.
+Client shows inline error on keystroke for format; profanity/duplicate
+errors surface in the save error box only on submission.
+
+## 9. Acceptance Criteria
 
 - [ ] A player with median metrics (all at p50) scores approximately power 4,800–5,200
 - [ ] A player with all metrics at p99 scores approximately power 11,500–12,000
