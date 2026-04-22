@@ -10,9 +10,10 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - [x] `gdd/projectile-system.md` — 12 projectile kinds, movement, dodge vs no-dodge, hit flash, draw shapes
 - [x] `gdd/map-system.md` — 2400×1600 top-down world, camera, collision, towns, river/bridge, 15 landmarks, tier themes, portals
 - [x] `gdd/economy-system.md` — gold flow, PvP transfer, insurance, broadcast upgrades, cosmetics catalog, DB schema
+- [x] `gdd/networking-system.md` — DB schema, all Realtime channels + events, API endpoints, leader election, desktop port options
 
 ## Remaining GDDs (in order)
-- [ ] #7 `gdd/networking-system.md` — Supabase Presence, move sync, challenge/invite flow
+- [ ] #8 `gdd/audio-system.md` — BGM tracks, synthesized SFX, AudioManager, per-page integration
 - [ ] #5 `gdd/map-system.md` — 2400×1600 world, top-down view, collision, towns, river/bridge, landmarks, 15 tier themes
 - [ ] #6 `gdd/economy-system.md` — gold flow, insurance, broadcast upgrades, cosmetics store
 - [ ] #7 `gdd/networking-system.md` — Supabase Presence, move sync, challenge/invite flow
