@@ -30,6 +30,11 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - Boss stats reflect 2026-04-10 balance pass (linear tier-scaling multipliers applied)
 - Gold economy: 500 signup bonus, 10% PvP transfer (min 50, max 500)
 - Map system: top-down overhaul with collision, towns, river/bridge, per-tier landmarks
+- Backend: desktop uses a **separate Supabase project** (different URL + anon key from web)
+  - Fresh schema — no data migration from web
+  - Same auth flow (email/magic link/OAuth)
+  - Same Supabase Realtime + Presence for multiplayer
+  - Web and desktop player bases are fully independent
 
 ## Source Files (web game)
 All in `C:\Users\Tianyang Liu\Desktop\Games\WS\web\lib\`:
