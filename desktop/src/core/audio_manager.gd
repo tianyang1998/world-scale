@@ -14,6 +14,7 @@ var _current_track: String = ""
 var _bgm_volume: float = 0.5
 var _sfx_volume: float = 0.5
 var _bgm_muted_prev: float = -1.0
+var _active_tween: Tween = null
 
 func _ready() -> void:
 	for i: int in 2:
@@ -25,6 +26,8 @@ func _ready() -> void:
 func play_bgm(track: String) -> void:
 	if track == _current_track:
 		return
+	if _active_tween and _active_tween.is_valid():
+		_active_tween.kill()
 	_current_track = track
 	var next_idx := 1 - _active_idx
 	var stream: AudioStream = load(BGM_PATH + track + ".mp3")
@@ -32,6 +35,7 @@ func play_bgm(track: String) -> void:
 	_players[next_idx].volume_db = linear_to_db(0.0)
 	_players[next_idx].play()
 	var tween := create_tween()
+	_active_tween = tween
 	tween.set_parallel(true)
 	tween.tween_property(
 		_players[_active_idx], "volume_db",
