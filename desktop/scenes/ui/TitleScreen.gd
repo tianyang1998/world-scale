@@ -18,7 +18,7 @@ func _ready() -> void:
 func _on_realm_selected(realm: String) -> void:
 	selected_realm = realm
 	PlayerData.realm = realm
-	_show_panel(Panel.CREDENTIALS)
+	set_status("Realm: " + realm + " — credential form coming in Task 6", false)
 
 func _show_panel(panel: Panel) -> void:
 	current_panel = panel
