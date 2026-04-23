@@ -1,0 +1,85 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqr7x2mfkn3da"]
+
+[ext_resource type="Script" path="res://scenes/ui/TitleScreen.gd" id="1_c8p4wjynmh6xt"]
+
+[node name="TitleScreen" type="Control"]
+script = ExtResource("1_c8p4wjynmh6xt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.05, 0.1, 1)
+
+[node name="MainContainer" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -250.0
+offset_right = 300.0
+offset_bottom = 250.0
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = "World Scale"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 48
+
+[node name="SubtitleLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = "Choose your realm"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="RealmGrid" type="GridContainer" parent="MainContainer"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="BtnAcademia" type="Button" parent="MainContainer/RealmGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 60)
+text = "Academia"
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnTech" type="Button" parent="MainContainer/RealmGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 60)
+text = "Tech"
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnMedicine" type="Button" parent="MainContainer/RealmGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 60)
+text = "Medicine"
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnCreative" type="Button" parent="MainContainer/RealmGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 60)
+text = "Creative"
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnLaw" type="Button" parent="MainContainer/RealmGrid"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 60)
+text = "Law"
+theme_override_font_sizes/font_size = 16
+
+[node name="StatusLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
