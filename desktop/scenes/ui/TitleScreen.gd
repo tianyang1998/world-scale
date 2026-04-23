@@ -356,14 +356,24 @@ func _read_form_fields(realm: String) -> Dictionary:
 
 func _on_proceed_pressed() -> void:
 	btn_proceed.disabled = true
-	set_status("Calculating power...", false)
+	# Only send realms the user actually filled in this session (not DB-only sentinels).
 	var entries: Array = []
 	for realm: String in _pending_entries:
-		var entry: Dictionary = _pending_entries[realm].duplicate()
-		entry["realm"] = realm
-		entry.erase("_loaded_from_db")
-		entry.erase("_power")
-		entries.append(entry)
+		var entry: Dictionary = _pending_entries[realm]
+		if entry.get("_loaded_from_db", false):
+			continue
+		var payload := entry.duplicate()
+		payload["realm"] = realm
+		entries.append(payload)
+	# If no new entries, all realms are DB-loaded — scores are current; skip re-score.
+	if entries.is_empty():
+		if PlayerData.character_name.is_empty():
+			_show_name_entry()
+		else:
+			_call_save_character()
+		btn_proceed.disabled = false
+		return
+	set_status("Calculating power...", false)
 	_http_state = HttpState.SCORE
 	var err := http.request(
 		API_BASE + "/api/score",
