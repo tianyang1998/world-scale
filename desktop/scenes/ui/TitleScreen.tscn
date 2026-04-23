@@ -1,0 +1,544 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqr7x2mfkn3da"]
+
+[ext_resource type="Script" path="res://scenes/ui/TitleScreen.gd" id="1_c8p4wjynmh6xt"]
+
+[node name="TitleScreen" type="Control"]
+script = ExtResource("1_c8p4wjynmh6xt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.05, 0.1, 1)
+
+[node name="MainContainer" type="VBoxContainer" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -280.0
+offset_right = 320.0
+offset_bottom = 280.0
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = "World Scale"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 48
+
+[node name="StatusLabel" type="Label" parent="MainContainer"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+
+[node name="AuthContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+visible = true
+theme_override_constants/separation = 10
+
+[node name="EmailInput" type="LineEdit" parent="MainContainer/AuthContainer"]
+layout_mode = 2
+placeholder_text = "Email"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="PasswordInput" type="LineEdit" parent="MainContainer/AuthContainer"]
+layout_mode = 2
+placeholder_text = "Password"
+secret = true
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnLogin" type="Button" parent="MainContainer/AuthContainer"]
+layout_mode = 2
+text = "Login"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnSignup" type="Button" parent="MainContainer/AuthContainer"]
+layout_mode = 2
+text = "Create Account"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="AccumulatorContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 10
+
+[node name="AccumTitle" type="Label" parent="MainContainer/AccumulatorContainer"]
+layout_mode = 2
+text = "Your Realm Scores"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="RealmList" type="VBoxContainer" parent="MainContainer/AccumulatorContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TotalPowerLabel" type="Label" parent="MainContainer/AccumulatorContainer"]
+layout_mode = 2
+text = "Submit credentials to calculate power."
+horizontal_alignment = 1
+
+[node name="BtnAddRealm" type="Button" parent="MainContainer/AccumulatorContainer"]
+layout_mode = 2
+text = "Add / Update a Realm"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnProceed" type="Button" parent="MainContainer/AccumulatorContainer"]
+layout_mode = 2
+text = "Proceed →"
+disabled = true
+custom_minimum_size = Vector2(0, 44)
+
+[node name="RealmPickerContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 10
+
+[node name="PickerTitle" type="Label" parent="MainContainer/RealmPickerContainer"]
+layout_mode = 2
+text = "Choose a realm to add or update"
+horizontal_alignment = 1
+
+[node name="RealmGrid" type="GridContainer" parent="MainContainer/RealmPickerContainer"]
+layout_mode = 2
+columns = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="BtnAcademia" type="Button" parent="MainContainer/RealmPickerContainer/RealmGrid"]
+layout_mode = 2
+text = "Academia"
+custom_minimum_size = Vector2(160, 60)
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnTech" type="Button" parent="MainContainer/RealmPickerContainer/RealmGrid"]
+layout_mode = 2
+text = "Tech"
+custom_minimum_size = Vector2(160, 60)
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnMedicine" type="Button" parent="MainContainer/RealmPickerContainer/RealmGrid"]
+layout_mode = 2
+text = "Medicine"
+custom_minimum_size = Vector2(160, 60)
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnCreative" type="Button" parent="MainContainer/RealmPickerContainer/RealmGrid"]
+layout_mode = 2
+text = "Creative"
+custom_minimum_size = Vector2(160, 60)
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnLaw" type="Button" parent="MainContainer/RealmPickerContainer/RealmGrid"]
+layout_mode = 2
+text = "Law"
+custom_minimum_size = Vector2(160, 60)
+theme_override_font_sizes/font_size = 16
+
+[node name="BtnBackToAccum" type="Button" parent="MainContainer/RealmPickerContainer"]
+layout_mode = 2
+text = "← Back"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="CredentialContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 8
+
+[node name="FormTitle" type="Label" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+
+[node name="AcademiaForm" type="VBoxContainer" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="Row1" type="HBoxContainer" parent="MainContainer/CredentialContainer/AcademiaForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/AcademiaForm/Row1"]
+layout_mode = 2
+text = "Years active"
+size_flags_horizontal = 3
+
+[node name="YearsActive" type="SpinBox" parent="MainContainer/CredentialContainer/AcademiaForm/Row1"]
+layout_mode = 2
+min_value = 0.0
+max_value = 60.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row2" type="HBoxContainer" parent="MainContainer/CredentialContainer/AcademiaForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/AcademiaForm/Row2"]
+layout_mode = 2
+text = "H-index"
+size_flags_horizontal = 3
+
+[node name="HIndex" type="SpinBox" parent="MainContainer/CredentialContainer/AcademiaForm/Row2"]
+layout_mode = 2
+min_value = 0.0
+max_value = 500.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row3" type="HBoxContainer" parent="MainContainer/CredentialContainer/AcademiaForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/AcademiaForm/Row3"]
+layout_mode = 2
+text = "Citations"
+size_flags_horizontal = 3
+
+[node name="Citations" type="SpinBox" parent="MainContainer/CredentialContainer/AcademiaForm/Row3"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row4" type="HBoxContainer" parent="MainContainer/CredentialContainer/AcademiaForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/AcademiaForm/Row4"]
+layout_mode = 2
+text = "Publications"
+size_flags_horizontal = 3
+
+[node name="Publications" type="SpinBox" parent="MainContainer/CredentialContainer/AcademiaForm/Row4"]
+layout_mode = 2
+min_value = 0.0
+max_value = 2000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row5" type="HBoxContainer" parent="MainContainer/CredentialContainer/AcademiaForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/AcademiaForm/Row5"]
+layout_mode = 2
+text = "i10-index"
+size_flags_horizontal = 3
+
+[node name="I10Index" type="SpinBox" parent="MainContainer/CredentialContainer/AcademiaForm/Row5"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="TechForm" type="VBoxContainer" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="Row1" type="HBoxContainer" parent="MainContainer/CredentialContainer/TechForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/TechForm/Row1"]
+layout_mode = 2
+text = "Years active"
+size_flags_horizontal = 3
+
+[node name="YearsActive" type="SpinBox" parent="MainContainer/CredentialContainer/TechForm/Row1"]
+layout_mode = 2
+min_value = 0.0
+max_value = 60.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row2" type="HBoxContainer" parent="MainContainer/CredentialContainer/TechForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/TechForm/Row2"]
+layout_mode = 2
+text = "GitHub followers"
+size_flags_horizontal = 3
+
+[node name="Followers" type="SpinBox" parent="MainContainer/CredentialContainer/TechForm/Row2"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1000000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row3" type="HBoxContainer" parent="MainContainer/CredentialContainer/TechForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/TechForm/Row3"]
+layout_mode = 2
+text = "Stars (total)"
+size_flags_horizontal = 3
+
+[node name="Stars" type="SpinBox" parent="MainContainer/CredentialContainer/TechForm/Row3"]
+layout_mode = 2
+min_value = 0.0
+max_value = 500000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row4" type="HBoxContainer" parent="MainContainer/CredentialContainer/TechForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/TechForm/Row4"]
+layout_mode = 2
+text = "Repositories"
+size_flags_horizontal = 3
+
+[node name="Repos" type="SpinBox" parent="MainContainer/CredentialContainer/TechForm/Row4"]
+layout_mode = 2
+min_value = 0.0
+max_value = 5000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row5" type="HBoxContainer" parent="MainContainer/CredentialContainer/TechForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/TechForm/Row5"]
+layout_mode = 2
+text = "Commits (total)"
+size_flags_horizontal = 3
+
+[node name="Commits" type="SpinBox" parent="MainContainer/CredentialContainer/TechForm/Row5"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="MedicineForm" type="VBoxContainer" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="Row1" type="HBoxContainer" parent="MainContainer/CredentialContainer/MedicineForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/MedicineForm/Row1"]
+layout_mode = 2
+text = "Years practicing"
+size_flags_horizontal = 3
+
+[node name="YearsPracticing" type="SpinBox" parent="MainContainer/CredentialContainer/MedicineForm/Row1"]
+layout_mode = 2
+min_value = 0.0
+max_value = 60.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row2" type="HBoxContainer" parent="MainContainer/CredentialContainer/MedicineForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/MedicineForm/Row2"]
+layout_mode = 2
+text = "Papers published"
+size_flags_horizontal = 3
+
+[node name="Papers" type="SpinBox" parent="MainContainer/CredentialContainer/MedicineForm/Row2"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row3" type="HBoxContainer" parent="MainContainer/CredentialContainer/MedicineForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/MedicineForm/Row3"]
+layout_mode = 2
+text = "Citations"
+size_flags_horizontal = 3
+
+[node name="Citations" type="SpinBox" parent="MainContainer/CredentialContainer/MedicineForm/Row3"]
+layout_mode = 2
+min_value = 0.0
+max_value = 50000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row4" type="HBoxContainer" parent="MainContainer/CredentialContainer/MedicineForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/MedicineForm/Row4"]
+layout_mode = 2
+text = "Patients treated"
+size_flags_horizontal = 3
+
+[node name="Patients" type="SpinBox" parent="MainContainer/CredentialContainer/MedicineForm/Row4"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="CreativeForm" type="VBoxContainer" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="Row1" type="HBoxContainer" parent="MainContainer/CredentialContainer/CreativeForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/CreativeForm/Row1"]
+layout_mode = 2
+text = "Years active"
+size_flags_horizontal = 3
+
+[node name="YearsActive" type="SpinBox" parent="MainContainer/CredentialContainer/CreativeForm/Row1"]
+layout_mode = 2
+min_value = 0.0
+max_value = 60.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row2" type="HBoxContainer" parent="MainContainer/CredentialContainer/CreativeForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/CreativeForm/Row2"]
+layout_mode = 2
+text = "Major works"
+size_flags_horizontal = 3
+
+[node name="Works" type="SpinBox" parent="MainContainer/CredentialContainer/CreativeForm/Row2"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row3" type="HBoxContainer" parent="MainContainer/CredentialContainer/CreativeForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/CreativeForm/Row3"]
+layout_mode = 2
+text = "Awards"
+size_flags_horizontal = 3
+
+[node name="Awards" type="SpinBox" parent="MainContainer/CredentialContainer/CreativeForm/Row3"]
+layout_mode = 2
+min_value = 0.0
+max_value = 200.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row4" type="HBoxContainer" parent="MainContainer/CredentialContainer/CreativeForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/CreativeForm/Row4"]
+layout_mode = 2
+text = "Audience size"
+size_flags_horizontal = 3
+
+[node name="Audience" type="SpinBox" parent="MainContainer/CredentialContainer/CreativeForm/Row4"]
+layout_mode = 2
+min_value = 0.0
+max_value = 10000000.0
+step = 1000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="LawForm" type="VBoxContainer" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="Row1" type="HBoxContainer" parent="MainContainer/CredentialContainer/LawForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/LawForm/Row1"]
+layout_mode = 2
+text = "Years practicing"
+size_flags_horizontal = 3
+
+[node name="YearsPracticing" type="SpinBox" parent="MainContainer/CredentialContainer/LawForm/Row1"]
+layout_mode = 2
+min_value = 0.0
+max_value = 60.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row2" type="HBoxContainer" parent="MainContainer/CredentialContainer/LawForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/LawForm/Row2"]
+layout_mode = 2
+text = "Cases handled"
+size_flags_horizontal = 3
+
+[node name="Cases" type="SpinBox" parent="MainContainer/CredentialContainer/LawForm/Row2"]
+layout_mode = 2
+min_value = 0.0
+max_value = 5000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row3" type="HBoxContainer" parent="MainContainer/CredentialContainer/LawForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/LawForm/Row3"]
+layout_mode = 2
+text = "Cases won"
+size_flags_horizontal = 3
+
+[node name="Wins" type="SpinBox" parent="MainContainer/CredentialContainer/LawForm/Row3"]
+layout_mode = 2
+min_value = 0.0
+max_value = 5000.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="Row4" type="HBoxContainer" parent="MainContainer/CredentialContainer/LawForm"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MainContainer/CredentialContainer/LawForm/Row4"]
+layout_mode = 2
+text = "Bar admissions"
+size_flags_horizontal = 3
+
+[node name="Admissions" type="SpinBox" parent="MainContainer/CredentialContainer/LawForm/Row4"]
+layout_mode = 2
+min_value = 0.0
+max_value = 30.0
+custom_minimum_size = Vector2(120, 0)
+
+[node name="BtnBack" type="Button" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+text = "← Back"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnSubmit" type="Button" parent="MainContainer/CredentialContainer"]
+layout_mode = 2
+text = "Add to Profile"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="NameContainer" type="VBoxContainer" parent="MainContainer"]
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 10
+
+[node name="NamePrompt" type="Label" parent="MainContainer/NameContainer"]
+layout_mode = 2
+text = "Choose your character name"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="NameInput" type="LineEdit" parent="MainContainer/NameContainer"]
+layout_mode = 2
+placeholder_text = "e.g. Dr. Jane Smith"
+max_length = 30
+custom_minimum_size = Vector2(0, 44)
+
+[node name="NameHint" type="Label" parent="MainContainer/NameContainer"]
+layout_mode = 2
+text = "2–30 chars · letters, numbers, spaces, - ' ."
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+
+[node name="NameError" type="Label" parent="MainContainer/NameContainer"]
+layout_mode = 2
+text = ""
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+
+[node name="BtnSaveChar" type="Button" parent="MainContainer/NameContainer"]
+layout_mode = 2
+text = "Enter the World"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnBackToAccum2" type="Button" parent="MainContainer/NameContainer"]
+layout_mode = 2
+text = "← Back"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="Http" type="HTTPRequest" parent="."]
