@@ -35,11 +35,17 @@ func _show_credential_form(realm: String) -> void:
 	form_title.text = realm.capitalize() + " — Enter your metrics"
 	for form_name: String in ["AcademiaForm", "TechForm", "MedicineForm", "CreativeForm", "LawForm"]:
 		credential_container.get_node(form_name).visible = false
-	var form_map: Dictionary = {
-		"academia": "AcademiaForm", "tech": "TechForm",
-		"medicine": "MedicineForm", "creative": "CreativeForm", "law": "LawForm"
-	}
-	credential_container.get_node(form_map[realm]).visible = true
+	var target_form: String
+	match realm:
+		"academia":  target_form = "AcademiaForm"
+		"tech":      target_form = "TechForm"
+		"medicine":  target_form = "MedicineForm"
+		"creative":  target_form = "CreativeForm"
+		"law":       target_form = "LawForm"
+		_:
+			push_error("TitleScreen: unknown realm '%s'" % realm)
+			return
+	credential_container.get_node(target_form).visible = true
 
 func _show_panel(panel: Panel) -> void:
 	current_panel = panel
@@ -101,6 +107,8 @@ func _build_payload() -> Dictionary:
 			payload["cases"] = f.get_node("Cases").value
 			payload["wins"] = f.get_node("Wins").value
 			payload["admissions"] = f.get_node("Admissions").value
+		_:
+			push_error("TitleScreen: _build_payload called with unknown realm '%s'" % selected_realm)
 	return payload
 
 func _on_score_response(
@@ -115,7 +123,11 @@ func _on_score_response(
 	if json.parse(body.get_string_from_utf8()) != OK:
 		set_status("Invalid response from server")
 		return
-	var data: Dictionary = json.get_data()
+	var raw: Variant = json.get_data()
+	if not raw is Dictionary:
+		set_status("Unexpected response format from server")
+		return
+	var data: Dictionary = raw
 	PlayerData.total_power = data.get("total_power", 0)
 	PlayerData.tier = data.get("tier", "Apprentice")
 	PlayerData.expertise = data.get("expertise", 0.0)
