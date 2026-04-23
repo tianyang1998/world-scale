@@ -42,6 +42,7 @@ func _ready() -> void:
 	$MainContainer/NameContainer/BtnBackToCredentials.pressed.connect(
 		func() -> void: _show_panel(Panel.CREDENTIALS)
 	)
+	AudioManager.play_bgm("landing")
 
 func _on_realm_selected(realm: String) -> void:
 	selected_realm = realm
