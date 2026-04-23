@@ -1,3 +1,4 @@
+class_name TitleScreen
 extends Control
 
 enum Panel { REALM, CREDENTIALS, NAME_ENTRY }
@@ -12,6 +13,7 @@ const PROFANITY_BLOCKLIST: Array[String] = [
 
 var current_panel: Panel = Panel.REALM
 var selected_realm: String = ""
+var _awaiting_save: bool = false
 
 @onready var realm_grid: GridContainer = $MainContainer/RealmGrid
 @onready var status_label: Label = $MainContainer/StatusLabel
@@ -36,7 +38,7 @@ func _ready() -> void:
 	realm_grid.get_node("BtnLaw").pressed.connect(_on_realm_selected.bind("law"))
 	btn_submit.pressed.connect(_on_submit_pressed)
 	btn_back.pressed.connect(_on_back_pressed)
-	http.request_completed.connect(_on_score_response)
+	http.request_completed.connect(_on_http_response)
 	name_input.text_changed.connect(_on_name_changed)
 	btn_save_char.pressed.connect(_on_save_character)
 	$MainContainer/NameContainer/BtnBackToCredentials.pressed.connect(
@@ -67,6 +69,8 @@ func _show_credential_form(realm: String) -> void:
 	credential_container.get_node(target_form).visible = true
 
 func _show_panel(panel: Panel) -> void:
+	if panel != Panel.NAME_ENTRY:
+		_awaiting_save = false
 	current_panel = panel
 	realm_grid.visible = (panel == Panel.REALM)
 	credential_container.visible = (panel == Panel.CREDENTIALS)
@@ -77,6 +81,7 @@ func _on_back_pressed() -> void:
 	_show_panel(Panel.REALM)
 
 func _on_submit_pressed() -> void:
+	_awaiting_save = false
 	btn_submit.disabled = true
 	set_status("Calculating...", false)
 	var payload := _build_payload()
@@ -131,6 +136,15 @@ func _build_payload() -> Dictionary:
 			push_error("TitleScreen: _build_payload called with unknown realm '%s'" % selected_realm)
 	return payload
 
+func _on_http_response(
+	result: int, response_code: int,
+	headers: PackedStringArray, body: PackedByteArray
+) -> void:
+	if _awaiting_save:
+		_on_save_response(result, response_code, headers, body)
+	else:
+		_on_score_response(result, response_code, headers, body)
+
 func _on_score_response(
 	result: int, response_code: int,
 	_headers: PackedStringArray, body: PackedByteArray
@@ -156,8 +170,7 @@ func _on_score_response(
 	PlayerData.credentials = data.get("credentials", 0.0)
 	PlayerData.network = data.get("network", 0.0)
 	PlayerData.realm_skill = data.get("realm_skill", "")
-	http.request_completed.disconnect(_on_score_response)
-	http.request_completed.connect(_on_save_response)
+	_awaiting_save = true
 	set_status("Power: " + str(PlayerData.total_power) + " — Tier: " + PlayerData.tier, false)
 	_show_panel(Panel.NAME_ENTRY)
 

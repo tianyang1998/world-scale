@@ -46,4 +46,7 @@ func clear() -> void:
 	impact = 0.0
 	credentials = 0.0
 	network = 0.0
+	battle_hp = 0
+	battle_attack = 0
+	battle_defence = 0
 	is_authenticated = false
