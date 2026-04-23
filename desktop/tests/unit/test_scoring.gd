@@ -5,6 +5,14 @@ func test_percentile_score_below_min_returns_zero() -> void:
     var dist := {"min": 10.0, "max": 100.0}
     assert_float(Scorer.percentile_score(5.0, dist)).is_equal_approx(0.0, 0.001)
 
+func test_percentile_score_at_min_returns_zero() -> void:
+    var dist := {"min": 10.0, "max": 100.0}
+    assert_float(Scorer.percentile_score(10.0, dist)).is_equal_approx(0.0, 0.001)
+
+func test_percentile_score_at_max_returns_hundred() -> void:
+    var dist := {"min": 10.0, "max": 100.0}
+    assert_float(Scorer.percentile_score(100.0, dist)).is_equal_approx(100.0, 0.001)
+
 # percentile_score: value above max returns 100.0
 func test_percentile_score_above_max_returns_hundred() -> void:
     var dist := {"min": 10.0, "max": 100.0}
