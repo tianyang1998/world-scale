@@ -17,3 +17,9 @@ func test_invalid_name_disallowed_chars() -> void:
 
 func test_invalid_name_empty() -> void:
 	assert_bool(TitleScreen.is_valid_name("")).is_false()
+
+func test_valid_name_minimum_length() -> void:
+	assert_bool(TitleScreen.is_valid_name("AB")).is_true()
+
+func test_valid_name_maximum_length() -> void:
+	assert_bool(TitleScreen.is_valid_name("A".repeat(30))).is_true()

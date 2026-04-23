@@ -25,6 +25,9 @@ var selected_realm: String = ""
 @onready var name_error: Label = $MainContainer/NameContainer/NameError
 @onready var btn_save_char: Button = $MainContainer/NameContainer/BtnSaveChar
 
+static var _name_regex: RegEx = null
+static var _profanity_regex: RegEx = null
+
 func _ready() -> void:
 	realm_grid.get_node("BtnAcademia").pressed.connect(_on_realm_selected.bind("academia"))
 	realm_grid.get_node("BtnTech").pressed.connect(_on_realm_selected.bind("tech"))
@@ -162,20 +165,19 @@ func _on_score_response(
 static func is_valid_name(name: String) -> bool:
 	if name.length() < 2 or name.length() > 30:
 		return false
-	var allowed := RegEx.new()
-	allowed.compile("^[a-zA-Z0-9 \\-''.]+$")
-	if not allowed.search(name):
+	if _name_regex == null:
+		_name_regex = RegEx.new()
+		_name_regex.compile("^[a-zA-Z0-9 \\-'.]+$")
+	if not _name_regex.search(name):
 		return false
 	return true
 
 func _contains_profanity(name: String) -> bool:
-	var lower := name.to_lower()
-	for word: String in PROFANITY_BLOCKLIST:
-		var re := RegEx.new()
-		re.compile("\\b" + word + "\\b")
-		if re.search(lower):
-			return true
-	return false
+	if _profanity_regex == null:
+		_profanity_regex = RegEx.new()
+		var pattern := "\\b(" + "|".join(PROFANITY_BLOCKLIST) + ")\\b"
+		_profanity_regex.compile(pattern)
+	return _profanity_regex.search(name.to_lower()) != null
 
 func _on_name_changed(new_text: String) -> void:
 	if new_text.is_empty():
@@ -233,10 +235,17 @@ func _on_save_response(
 			set_status("Save failed (HTTP " + str(response_code) + ")")
 		return
 	var json := JSON.new()
-	if json.parse(body.get_string_from_utf8()) == OK:
-		var raw: Variant = json.get_data()
-		if raw is Dictionary:
-			PlayerData.gold = (raw as Dictionary).get("gold", 500)
+	if json.parse(body.get_string_from_utf8()) != OK:
+		set_status("Invalid response from server")
+		btn_save_char.disabled = false
+		return
+	var raw: Variant = json.get_data()
+	if not raw is Dictionary:
+		set_status("Unexpected response format from server")
+		btn_save_char.disabled = false
+		return
+	var data: Dictionary = raw
+	PlayerData.gold = data.get("gold", 500)
 	PlayerData.is_authenticated = true
 	GameManager.go_to_world()
 
