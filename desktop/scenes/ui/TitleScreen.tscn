@@ -319,3 +319,34 @@ text = "Calculate Power"
 custom_minimum_size = Vector2(0, 44)
 
 [node name="Http" type="HTTPRequest" parent="."]
+
+[node name="NameContainer" type="VBoxContainer" parent="MainContainer"]
+visible = false
+theme_override_constants/separation = 10
+
+[node name="NamePrompt" type="Label" parent="MainContainer/NameContainer"]
+text = "Choose your character name"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="NameInput" type="LineEdit" parent="MainContainer/NameContainer"]
+placeholder_text = "e.g. Dr. Jane Smith"
+max_length = 30
+custom_minimum_size = Vector2(0, 44)
+
+[node name="NameHint" type="Label" parent="MainContainer/NameContainer"]
+text = "2-30 characters: letters, numbers, spaces, - ' ."
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+
+[node name="NameError" type="Label" parent="MainContainer/NameContainer"]
+text = ""
+theme_override_colors/font_color = Color(1, 0.3, 0.3, 1)
+
+[node name="BtnSaveChar" type="Button" parent="MainContainer/NameContainer"]
+text = "Enter the World"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="BtnBackToCredentials" type="Button" parent="MainContainer/NameContainer"]
+text = "Back"
+custom_minimum_size = Vector2(0, 44)

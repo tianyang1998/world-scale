@@ -4,6 +4,12 @@ enum Panel { REALM, CREDENTIALS, NAME_ENTRY }
 
 const API_BASE := "https://YOUR_API_BASE_URL"
 
+const PROFANITY_BLOCKLIST: Array[String] = [
+    "fuck", "shit", "ass", "bitch", "cunt", "dick", "pussy",
+    "bastard", "damn", "crap", "piss", "slut", "whore", "nigger",
+    "faggot", "retard", "idiot", "moron", "anus", "cock"
+]
+
 var current_panel: Panel = Panel.REALM
 var selected_realm: String = ""
 
@@ -14,6 +20,10 @@ var selected_realm: String = ""
 @onready var btn_submit: Button = $MainContainer/CredentialContainer/BtnSubmit
 @onready var btn_back: Button = $MainContainer/CredentialContainer/BtnBack
 @onready var http: HTTPRequest = $Http
+@onready var name_container: VBoxContainer = $MainContainer/NameContainer
+@onready var name_input: LineEdit = $MainContainer/NameContainer/NameInput
+@onready var name_error: Label = $MainContainer/NameContainer/NameError
+@onready var btn_save_char: Button = $MainContainer/NameContainer/BtnSaveChar
 
 func _ready() -> void:
 	realm_grid.get_node("BtnAcademia").pressed.connect(_on_realm_selected.bind("academia"))
@@ -24,6 +34,11 @@ func _ready() -> void:
 	btn_submit.pressed.connect(_on_submit_pressed)
 	btn_back.pressed.connect(_on_back_pressed)
 	http.request_completed.connect(_on_score_response)
+	name_input.text_changed.connect(_on_name_changed)
+	btn_save_char.pressed.connect(_on_save_character)
+	$MainContainer/NameContainer/BtnBackToCredentials.pressed.connect(
+		func() -> void: _show_panel(Panel.CREDENTIALS)
+	)
 
 func _on_realm_selected(realm: String) -> void:
 	selected_realm = realm
@@ -51,6 +66,7 @@ func _show_panel(panel: Panel) -> void:
 	current_panel = panel
 	realm_grid.visible = (panel == Panel.REALM)
 	credential_container.visible = (panel == Panel.CREDENTIALS)
+	name_container.visible = (panel == Panel.NAME_ENTRY)
 	status_label.text = ""
 
 func _on_back_pressed() -> void:
@@ -136,8 +152,93 @@ func _on_score_response(
 	PlayerData.credentials = data.get("credentials", 0.0)
 	PlayerData.network = data.get("network", 0.0)
 	PlayerData.realm_skill = data.get("realm_skill", "")
+	http.request_completed.disconnect(_on_score_response)
+	http.request_completed.connect(_on_save_response)
 	set_status("Power: " + str(PlayerData.total_power) + " — Tier: " + PlayerData.tier, false)
 	_show_panel(Panel.NAME_ENTRY)
+
+# ── Name validation ───────────────────────────────────────────────────────────
+
+static func is_valid_name(name: String) -> bool:
+	if name.length() < 2 or name.length() > 30:
+		return false
+	var allowed := RegEx.new()
+	allowed.compile("^[a-zA-Z0-9 \\-''.]+$")
+	if not allowed.search(name):
+		return false
+	return true
+
+func _contains_profanity(name: String) -> bool:
+	var lower := name.to_lower()
+	for word: String in PROFANITY_BLOCKLIST:
+		var re := RegEx.new()
+		re.compile("\\b" + word + "\\b")
+		if re.search(lower):
+			return true
+	return false
+
+func _on_name_changed(new_text: String) -> void:
+	if new_text.is_empty():
+		name_error.text = ""
+		return
+	if not is_valid_name(new_text):
+		name_error.text = "2-30 chars: letters, numbers, spaces, - ' ."
+	else:
+		name_error.text = ""
+
+func _on_save_character() -> void:
+	var char_name := name_input.text.strip_edges()
+	if not is_valid_name(char_name):
+		set_status("Invalid name format.")
+		return
+	if _contains_profanity(char_name):
+		set_status("Name contains disallowed words.")
+		return
+	PlayerData.character_name = char_name
+	_call_save_character()
+
+func _call_save_character() -> void:
+	btn_save_char.disabled = true
+	set_status("Saving...", false)
+	var payload: Dictionary = {
+		"name": PlayerData.character_name,
+		"realm": PlayerData.realm,
+		"total_power": PlayerData.total_power,
+		"tier": PlayerData.tier,
+	}
+	var headers: PackedStringArray = [
+		"Content-Type: application/json",
+		"Authorization: Bearer " + PlayerData.jwt
+	]
+	var err := http.request(
+		API_BASE + "/api/character/save",
+		headers,
+		HTTPClient.METHOD_POST,
+		JSON.stringify(payload)
+	)
+	if err != OK:
+		set_status("Network error saving character")
+		btn_save_char.disabled = false
+
+func _on_save_response(
+	result: int, response_code: int,
+	_headers: PackedStringArray, body: PackedByteArray
+) -> void:
+	btn_save_char.disabled = false
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		var msg := body.get_string_from_utf8()
+		if "already taken" in msg or "duplicate" in msg.to_lower():
+			set_status("Name already taken — try another.")
+		else:
+			set_status("Save failed (HTTP " + str(response_code) + ")")
+		return
+	var json := JSON.new()
+	if json.parse(body.get_string_from_utf8()) == OK:
+		var raw: Variant = json.get_data()
+		if raw is Dictionary:
+			PlayerData.gold = (raw as Dictionary).get("gold", 500)
+	PlayerData.is_authenticated = true
+	GameManager.go_to_world()
 
 func set_status(msg: String, is_error: bool = true) -> void:
 	status_label.text = msg
