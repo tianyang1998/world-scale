@@ -51,7 +51,24 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - Terrain material cached in _terrain_mat; albedo mutated on tier changes (no reallocation)
 - Trigger handlers are print stubs — Phase 3 wires real portal/boss/store logic
 
-### Phase 3 — Not started
+### Phase 3 — COMPLETE (2026-04-24)
+
+- [x] `src/core/network_manager.gd` — full rewrite: WebSocketPeer connection, Phoenix channel protocol, Supabase Realtime Presence (track/diff), Broadcast (move/challenge/pve_invite), 30s heartbeat, 80ms move throttle
+- [x] `src/world/remote_player.gd` + `scenes/world/RemotePlayer.tscn` — kinematic Node3D, lerp interpolation (speed=8), Label3D name tag (billboard)
+- [x] `src/world/world_scene.gd` — NetworkManager signal wiring, remote player spawn/despawn on presence join/leave, move relay, portal tier transition (clears remote players, switches channel, updates terrain + HUD, repositions local player at opposite edge)
+- [x] `src/ui/world_hud.gd` + `WorldHUD.tscn` — added `OnlineLabel` (green), `update_tier()`, `update_online_count()` methods
+- [x] `tests/unit/test_network_manager.gd` — 9 unit tests: ref counter, throttle guard, presence diff joins/leaves, broadcast routing (move/self-filter, challenge/self-filter, pve_invite)
+
+**Key implementation decisions:**
+- WebSocket protocol: Godot `WebSocketPeer` + Phoenix channel JSON directly (no GDExtension Supabase SDK needed)
+- Presence track payload mirrors web version: `{userId, name, tier, x, y}`
+- Move broadcast throttle: 80ms (matches web version), sent from `WorldScene._process` not `LocalPlayer` (keeps networking out of physics node)
+- Z↔Y axis mapping: web `y` = Godot `Z` — applied in `send_move(pos.x, pos.z)` and `RemotePlayer.update_target(x, y) → Vector3(x, 0, y)`
+- Portal tier transition: clears all remote players, applies tier theme, re-subscribes channel, repositions local player 5m inside new tier edge
+- Challenge + pve_invite: print stubs only — modals wired in Phase 4/5
+- SUPABASE_WS_URL and SUPABASE_ANON_KEY are PLACEHOLDER — replace before live network test
+
+### Phase 4 — Not started
 
 ---
 
