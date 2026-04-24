@@ -1,0 +1,117 @@
+[gd_scene load_steps=2 format=3 uid="uid://prepscreen001"]
+
+[ext_resource type="Script" path="res://src/ui/prep_screen.gd" id="1_script"]
+
+[node name="PrepScreen" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_script")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -220.0
+offset_right = 240.0
+offset_bottom = 220.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Allocate Your Power"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="PowerLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Power: 0"
+horizontal_alignment = 1
+
+[node name="Sep1" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="HPRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/HPRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+text = "HP"
+
+[node name="HPSlider" type="HSlider" parent="Panel/VBox/HPRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 10000.0
+value = 0.0
+
+[node name="HPValue" type="Label" parent="Panel/VBox/HPRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "0"
+horizontal_alignment = 2
+
+[node name="AttackRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/AttackRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+text = "Attack"
+
+[node name="AttackSlider" type="HSlider" parent="Panel/VBox/AttackRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 10000.0
+value = 0.0
+
+[node name="AttackValue" type="Label" parent="Panel/VBox/AttackRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "0"
+horizontal_alignment = 2
+
+[node name="DefenceRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="Panel/VBox/DefenceRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+text = "Defence"
+
+[node name="DefenceSlider" type="HSlider" parent="Panel/VBox/DefenceRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 10000.0
+value = 0.0
+
+[node name="DefenceValue" type="Label" parent="Panel/VBox/DefenceRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "0"
+horizontal_alignment = 2
+
+[node name="Sep2" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="RemainingLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = "Remaining: 0"
+horizontal_alignment = 1
+
+[node name="ErrorLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+modulate = Color(1, 0.4, 0.4, 1)
+
+[node name="ConfirmBtn" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Enter Battle"
+disabled = true

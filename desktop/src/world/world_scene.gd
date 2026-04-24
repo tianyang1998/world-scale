@@ -2,8 +2,10 @@ extends Node3D
 
 const LOCAL_PLAYER_SCENE: PackedScene = preload("res://scenes/world/LocalPlayer.tscn")
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/world/RemotePlayer.tscn")
+const PREP_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/PrepScreen.tscn")
+const PVP_ARENA_SCENE: PackedScene = preload("res://scenes/world/PvPArena.tscn")
+const RESULT_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/ResultScreen.tscn")
 
-# Ordered list matches the 15-tier progression from scoring-system.md.
 const TIERS: Array[String] = [
 	"Apprentice", "Initiate", "Acolyte", "Journeyman", "Adept",
 	"Scholar", "Sage", "Arcanist", "Exemplar", "Vanguard",
@@ -17,6 +19,10 @@ const TIERS: Array[String] = [
 var _local_player: LocalPlayer = null
 var _remote_players: Dictionary = {}  # user_id → RemotePlayer
 
+var _prep_screen: PrepScreen = null
+var _pvp_arena: PvPArena = null
+var _result_screen: ResultScreen = null
+
 
 func _ready() -> void:
 	_spawn_player()
@@ -27,11 +33,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _local_player == null:
+	if _local_player == null or GameManager.current_state != GameManager.State.WORLD:
 		return
-	var pos: Vector3 = _local_player.global_position
-	# Z maps to web-style Y (depth axis).
-	NetworkManager.send_move(pos.x, pos.z)
+	NetworkManager.send_move(_local_player.global_position.x,
+			_local_player.global_position.z)
 
 
 # ─── Player spawn ─────────────────────────────────────────────────────────────
@@ -63,9 +68,8 @@ func _on_portal(direction: int) -> void:
 		return
 	var new_idx: int = clamp(idx + direction, 0, TIERS.size() - 1)
 	if new_idx == idx:
-		return  # already at tier boundary
+		return
 
-	# Clear all remote players — they belong to the old tier channel.
 	for uid: String in _remote_players:
 		_remote_players[uid].queue_free()
 	_remote_players.clear()
@@ -75,7 +79,6 @@ func _on_portal(direction: int) -> void:
 	hud.update_tier(PlayerData.tier)
 	_update_online_count()
 
-	# Re-enter from the opposite portal edge.
 	var spawn_x: float = 230.0 if direction == -1 else 10.0
 	if _local_player != null:
 		_local_player.global_position = Vector3(spawn_x, 0.0, 80.0)
@@ -84,7 +87,7 @@ func _on_portal(direction: int) -> void:
 
 
 func _on_boss_lair() -> void:
-	print("Boss lair proximity entered — Phase 5 will wire PvE lobby")
+	print("Boss lair entered — Phase 5 will wire PvE lobby")
 
 
 func _on_store() -> void:
@@ -103,10 +106,8 @@ func _connect_network() -> void:
 
 
 func _on_player_joined(user_id: String, p_name: String, x: float, y: float) -> void:
-	if user_id == PlayerData.user_id:
-		return  # don't spawn own ghost
-	if _remote_players.has(user_id):
-		return  # already tracked
+	if user_id == PlayerData.user_id or _remote_players.has(user_id):
+		return
 	var rp: RemotePlayer = REMOTE_PLAYER_SCENE.instantiate()
 	add_child(rp)
 	rp.init(p_name, x, y)
@@ -127,14 +128,68 @@ func _on_player_moved(user_id: String, x: float, y: float) -> void:
 		_remote_players[user_id].update_target(x, y)
 
 
-func _on_challenge_received(from_id: String, from_name: String, _battle_id: String) -> void:
-	print("Challenge received from %s (%s) — Phase 4 will show modal" % [from_name, from_id])
+func _on_challenge_received(from_id: String, from_name: String, battle_id: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Challenge!"
+	dialog.dialog_text = "%s challenges you to a duel!" % from_name
+	add_child(dialog)
+	dialog.confirmed.connect(func() -> void:
+		dialog.queue_free()
+		_open_prep_screen(from_id, battle_id)
+	)
+	dialog.canceled.connect(func() -> void: dialog.queue_free())
+	dialog.popup_centered()
 
 
-func _on_pve_invite_received(from_id: String, from_name: String, boss_name: String, _battle_id: String) -> void:
+func _on_pve_invite_received(from_id: String, from_name: String,
+		boss_name: String, _battle_id: String) -> void:
 	print("PvE invite from %s — boss: %s — Phase 5 will show modal" % [from_name, boss_name])
-	_ = from_id  # used in Phase 5
+	_ = from_id
 
+
+# ─── PvP flow ─────────────────────────────────────────────────────────────────
+
+func _open_prep_screen(opponent_id: String, battle_id: String) -> void:
+	GameManager.start_pvp_prep(opponent_id, battle_id)
+	_prep_screen = PREP_SCREEN_SCENE.instantiate()
+	add_child(_prep_screen)
+	_prep_screen.confirmed.connect(_on_prep_confirmed)
+
+
+func _on_prep_confirmed() -> void:
+	_prep_screen.queue_free()
+	_prep_screen = null
+	world_map.visible = false
+	if _local_player != null:
+		_local_player.visible = false
+	_pvp_arena = PVP_ARENA_SCENE.instantiate()
+	add_child(_pvp_arena)
+	GameManager.enter_pvp_arena()
+	_pvp_arena.battle_ended.connect(_on_battle_ended)
+
+
+func _on_battle_ended(won: bool, gold_delta: int, new_gold: int) -> void:
+	GameManager.show_result()
+	_result_screen = RESULT_SCREEN_SCENE.instantiate()
+	add_child(_result_screen)
+	_result_screen.show_result(won, gold_delta, new_gold)
+	_result_screen.continue_pressed.connect(_on_result_continue)
+
+
+func _on_result_continue() -> void:
+	_result_screen.queue_free()
+	_result_screen = null
+	_pvp_arena.queue_free()
+	_pvp_arena = null
+	world_map.visible = true
+	if _local_player != null:
+		_local_player.visible = true
+	hud.refresh_gold()
+	GameManager.return_to_world()
+	AudioManager.play_bgm("map")
+
+
+# ─── HUD helpers ──────────────────────────────────────────────────────────────
 
 func _update_online_count() -> void:
 	hud.update_online_count(_remote_players.size() + 1)

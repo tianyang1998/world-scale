@@ -68,7 +68,26 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - Challenge + pve_invite: print stubs only — modals wired in Phase 4/5
 - SUPABASE_WS_URL and SUPABASE_ANON_KEY are PLACEHOLDER — replace before live network test
 
-### Phase 4 — Not started
+### Phase 4 — COMPLETE (2026-04-24)
+
+- [x] `src/core/battle_state.gd` — BattleState RefCounted: HP/Attack/Defence, debuff slots (dict with multiplier + expiry), stun expiry, brace flag, cooldown timestamp; `effective_attack()` / `effective_defence()` check expiry at call time
+- [x] `src/core/battle_manager.gd` — stateless static methods: `calc_damage()` (GDD §3.3 formula), `calc_gold_transfer()` (10%, min 50, cap 500, edge: <50 loses all), `apply_debuff()`, `apply_stun()`, `apply_realm_skill()` (all 5 realms), `realm_skill_ready()`, `realm_skill_name()`, `projectile_kind_for_action()`
+- [x] `src/ui/prep_screen.gd` + `scenes/ui/PrepScreen.tscn` — 3 HSliders (HP/Attack/Defence), min = floor(power×0.10), confirm disabled until sum == power and all ≥ min, writes to `PlayerData.battle_*`
+- [x] `src/world/projectile.gd` + `scenes/shared/Projectile.tscn` — 12-kind projectile: linear travel, per-kind speed/size/hit-radius/no-dodge from KIND_DATA; 5 draw shapes (orb, sword, lightning, verdict, heal_pulse, spiral); hit flash 300ms; fade-out alpha
+- [x] `src/world/pvp_arena.gd` + `scenes/world/PvPArena.tscn` — CanvasLayer (layer=5): HP bars, Strike/Brace/Realm buttons, projectile spawn, cooldown display, stun guard, `_end_battle()` → `battle_ended` signal
+- [x] `src/ui/result_screen.gd` + `scenes/ui/ResultScreen.tscn` — CanvasLayer (layer=20): Victory/Defeat, gold delta (color-coded), new gold total, Continue button → `continue_pressed` signal
+- [x] `src/core/game_manager.gd` — added `start_pvp_prep()`, `enter_pvp_arena()`, `show_result()`, `return_to_world()` state transitions; `current_battle_id` / `current_opponent_id`
+- [x] `src/world/world_scene.gd` — full PvP flow: challenge AcceptDialog → PrepScreen → PvPArena (world_map hidden) → ResultScreen → restore world; `_process` gated to WORLD state only
+- [x] `tests/unit/test_battle_manager.gd` — 20 unit tests covering damage formula, brace, defence debuff, expired debuff, gold transfer (all 4 edge cases), medicine heal cap, realm skill names, projectile kind routing
+
+**Key implementation decisions:**
+- PvP arena is a 2D CanvasLayer overlay — world stays loaded in 3D behind it
+- PvPArena Phase 4: opponent simulated (joins after 1s, placeholder stats) — real Supabase battle channel wired once credentials are live
+- Damage applied immediately locally; in networked play will rely on `hp_sync` broadcast
+- Gold delta: winner uses loser's `max_hp / 3` as proxy for gold (placeholder) — real gold from `PlayerData.gold` in networked play via server `battle/end`
+- `_process` in WorldScene skips move broadcast while not in WORLD state
+
+### Phase 5 — Not started
 
 ---
 
