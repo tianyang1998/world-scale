@@ -1,7 +1,7 @@
 class_name PvPArena
 extends CanvasLayer
 
-signal battle_ended(won: bool, gold_delta: int, new_gold: int)
+signal battle_ended(won: bool, gold_delta: int, new_gold: int, refund: int)
 
 const PROJECTILE_SCENE: PackedScene = preload("res://scenes/shared/Projectile.tscn")
 
@@ -214,12 +214,16 @@ func _end_battle(won: bool) -> void:
 	_battle_over = true
 	_set_actions_enabled(false)
 	var gold_delta: int
+	var refund: int = 0
 	if won:
 		gold_delta = BattleManager.calc_gold_transfer(_opponent.max_hp)
 		PlayerData.gold += gold_delta
 		AudioManager.play_bgm("win")
 	else:
-		gold_delta = -BattleManager.calc_gold_transfer(PlayerData.gold)
-		PlayerData.gold = max(0, PlayerData.gold + gold_delta)
+		var transfer: int = BattleManager.calc_gold_transfer(PlayerData.gold)
+		refund = EconomyManager.calc_refund(transfer, PlayerData.active_insurance)
+		gold_delta = -(transfer - refund)
+		PlayerData.gold = max(0, PlayerData.gold - transfer + refund)
 		AudioManager.play_bgm("lose")
-	battle_ended.emit(won, gold_delta, PlayerData.gold)
+	EconomyManager.consume_insurance()
+	battle_ended.emit(won, gold_delta, PlayerData.gold, refund)

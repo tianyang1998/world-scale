@@ -1,0 +1,63 @@
+[gd_scene load_steps=2 format=3 uid="uid://storescreen001"]
+
+[ext_resource type="Script" path="res://src/ui/store_screen.gd" id="1_script"]
+
+[node name="StoreScreen" type="CanvasLayer"]
+layer = 15
+script = ExtResource("1_script")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+mouse_filter = 0
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -240.0
+offset_right = 320.0
+offset_bottom = 240.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="TitleRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="StoreTitle" type="Label" parent="Panel/VBox/TitleRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Store"
+theme_override_font_sizes/font_size = 22
+
+[node name="GoldLabel" type="Label" parent="Panel/VBox/TitleRow"]
+layout_mode = 2
+text = "Gold: 0"
+horizontal_alignment = 2
+
+[node name="TabBar" type="TabBar" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 300)
+
+[node name="ItemList" type="VBoxContainer" parent="Panel/VBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ErrorLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+modulate = Color(1, 0.4, 0.4, 1)
+
+[node name="CloseBtn" type="Button" parent="Panel/VBox"]
+layout_mode = 2
+text = "Close"

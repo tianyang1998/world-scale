@@ -12,10 +12,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -240.0
-offset_top = -220.0
-offset_right = 240.0
-offset_bottom = 220.0
+offset_left = -260.0
+offset_top = -270.0
+offset_right = 260.0
+offset_bottom = 270.0
 
 [node name="VBox" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
@@ -45,9 +45,6 @@ text = "HP"
 [node name="HPSlider" type="HSlider" parent="Panel/VBox/HPRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-min_value = 0.0
-max_value = 10000.0
-value = 0.0
 
 [node name="HPValue" type="Label" parent="Panel/VBox/HPRow"]
 layout_mode = 2
@@ -66,9 +63,6 @@ text = "Attack"
 [node name="AttackSlider" type="HSlider" parent="Panel/VBox/AttackRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-min_value = 0.0
-max_value = 10000.0
-value = 0.0
 
 [node name="AttackValue" type="Label" parent="Panel/VBox/AttackRow"]
 layout_mode = 2
@@ -87,9 +81,6 @@ text = "Defence"
 [node name="DefenceSlider" type="HSlider" parent="Panel/VBox/DefenceRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-min_value = 0.0
-max_value = 10000.0
-value = 0.0
 
 [node name="DefenceValue" type="Label" parent="Panel/VBox/DefenceRow"]
 layout_mode = 2
@@ -110,6 +101,35 @@ layout_mode = 2
 text = ""
 horizontal_alignment = 1
 modulate = Color(1, 0.4, 0.4, 1)
+
+[node name="Sep3" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="InsuranceRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="Label" type="Label" parent="Panel/VBox/InsuranceRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+text = "Insurance:"
+
+[node name="InsuranceOption" type="OptionButton" parent="Panel/VBox/InsuranceRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BroadcastRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+visible = false
+
+[node name="Label" type="Label" parent="Panel/VBox/BroadcastRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 0)
+text = "Broadcast:"
+
+[node name="BroadcastOption" type="OptionButton" parent="Panel/VBox/BroadcastRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="ConfirmBtn" type="Button" parent="Panel/VBox"]
 layout_mode = 2

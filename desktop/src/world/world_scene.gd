@@ -6,6 +6,7 @@ const PREP_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/PrepScreen.tscn"
 const PVP_ARENA_SCENE: PackedScene = preload("res://scenes/world/PvPArena.tscn")
 const BOSS_ARENA_SCENE: PackedScene = preload("res://scenes/world/BossArena.tscn")
 const RESULT_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/ResultScreen.tscn")
+const STORE_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/StoreScreen.tscn")
 
 const TIERS: Array[String] = [
 	"Apprentice", "Initiate", "Acolyte", "Journeyman", "Adept",
@@ -23,6 +24,7 @@ var _remote_players: Dictionary = {}  # user_id → RemotePlayer
 var _prep_screen: PrepScreen = null
 var _pvp_arena: PvPArena = null
 var _result_screen: ResultScreen = null
+var _store_screen: StoreScreen = null
 
 
 func _ready() -> void:
@@ -92,8 +94,19 @@ func _on_boss_lair() -> void:
 
 
 func _on_store() -> void:
+	if _store_screen != null:
+		return
+	_store_screen = STORE_SCREEN_SCENE.instantiate()
+	add_child(_store_screen)
 	if _local_player != null:
-		_local_player.show_interact_hint("Press E to open store")
+		_local_player.hide_interact_hint()
+	_store_screen.close_requested.connect(_on_store_closed)
+
+
+func _on_store_closed() -> void:
+	_store_screen.queue_free()
+	_store_screen = null
+	hud.refresh_gold()
 
 
 # ─── Networking ───────────────────────────────────────────────────────────────
@@ -153,6 +166,7 @@ func _on_pve_invite_received(from_id: String, from_name: String,
 func _open_prep_screen(opponent_id: String, battle_id: String) -> void:
 	GameManager.start_pvp_prep(opponent_id, battle_id)
 	_prep_screen = PREP_SCREEN_SCENE.instantiate()
+	_prep_screen.mode = "pvp"
 	add_child(_prep_screen)
 	_prep_screen.confirmed.connect(_on_prep_confirmed)
 
@@ -169,11 +183,11 @@ func _on_prep_confirmed() -> void:
 	_pvp_arena.battle_ended.connect(_on_battle_ended)
 
 
-func _on_battle_ended(won: bool, gold_delta: int, new_gold: int) -> void:
+func _on_battle_ended(won: bool, gold_delta: int, new_gold: int, refund: int = 0) -> void:
 	GameManager.show_result()
 	_result_screen = RESULT_SCREEN_SCENE.instantiate()
 	add_child(_result_screen)
-	_result_screen.show_result(won, gold_delta, new_gold)
+	_result_screen.show_result(won, gold_delta, new_gold, refund)
 	_result_screen.continue_pressed.connect(_on_result_continue)
 
 

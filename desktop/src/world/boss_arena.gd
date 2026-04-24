@@ -50,6 +50,12 @@ func _ready() -> void:
 	_boss = BossData.BOSSES[tier]
 	_boss_hp = _boss["hp"]
 
+	var bc_id: String = PlayerData.pending_broadcast
+	var bc_cost: int = int(EconomyManager.BROADCAST.get(bc_id, {}).get("cost", 0))
+	if bc_cost > 0:
+		PlayerData.gold = max(0, PlayerData.gold - bc_cost)
+		PlayerData.pending_broadcast = "basic"
+
 	_setup_boss_proxy()
 	_setup_local_state()
 	_setup_ui()

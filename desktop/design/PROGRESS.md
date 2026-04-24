@@ -102,7 +102,25 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - Phase 5 is single-player only — BossArena holds `_players: Array[BattleState]` ready for multi-player wiring in Phase 5 networking (needs live Supabase creds)
 - BossArena reuses same `_on_battle_ended` / ResultScreen flow from WorldScene as PvP
 
-### Phase 6 — Not started
+### Phase 6 — COMPLETE (2026-04-24)
+
+- [x] `src/core/player_data.gd` — economy fields added: `active_insurance`, `owned_cosmetics`, `equipped_title`, `equipped_border`, `pending_broadcast`; `load_from_dict` and `clear` updated
+- [x] `src/core/economy_manager.gd` — stateless static class: INSURANCE / BROADCAST / TITLES / BORDERS catalogs; `buy_insurance()`, `calc_refund()`, `consume_insurance()`, `buy_broadcast()`, `buy_cosmetic()`, `equip_cosmetic()`, `unequip_slot()`, `equipped_title_display()`
+- [x] `src/ui/prep_screen.gd` + `scenes/ui/PrepScreen.tscn` — InsuranceRow + BroadcastRow added (hidden by default); `mode` property set by WorldScene before `add_child()`; pvp mode shows insurance picker (disabled when unaffordable), pve mode shows broadcast picker; confirm calls `buy_insurance()` or stores `pending_broadcast`
+- [x] `src/ui/store_screen.gd` + `scenes/ui/StoreScreen.tscn` — CanvasLayer (layer=15): two-tab cosmetics store (Titles/Borders); per-item Buy/Equip/Unequip buttons; disables Buy when insufficient gold; emits `close_requested`
+- [x] `src/world/pvp_arena.gd` — `_end_battle()`: calculates insurance refund on loss via `EconomyManager.calc_refund()`, consumes policy via `consume_insurance()`; `battle_ended` signal gains 4th param `refund: int`
+- [x] `src/world/boss_arena.gd` — `_ready()`: deducts `pending_broadcast` cost before battle starts, resets to "basic" after deduction
+- [x] `src/world/world_scene.gd` — STORE_SCREEN_SCENE preloaded; `_on_store()` opens StoreScreen (deduplicates), `_on_store_closed()` frees it and refreshes HUD gold; `prep_screen.mode = "pvp"` set before `add_child()`; `_on_battle_ended()` accepts optional `refund` param and passes to ResultScreen
+- [x] `src/ui/result_screen.gd` + `scenes/ui/ResultScreen.tscn` — InsuranceLabel added (hidden by default); `show_result()` gains `refund: int = 0` param; shows refund line in green when > 0
+- [x] `tests/unit/test_economy_manager.gd` — 19 unit tests: insurance buy/block/stack, refund percentages (bronze/silver/gold/none + floor), broadcast (free/deduct/insufficient), cosmetic buy (deduct/owned/auto-equip/re-own no-charge/insufficient), equip (not-owned error, title, border)
+
+**Key implementation decisions:**
+- EconomyManager is fully stateless static — no instantiation; all state lives in PlayerData
+- Insurance policy consumed after every match (win or lose) — `consume_insurance()` always called in `_end_battle()`
+- Broadcast cost deducted once at BossArena entry, not at PrepScreen confirm — PrepScreen only stores the selection in `PlayerData.pending_broadcast`
+- StoreScreen buy auto-equips the purchased cosmetic; equip/unequip are separate actions per item row
+- `prep_screen.mode` must be set BEFORE `add_child()` — `_setup_economy_rows()` runs in `_ready()` which fires on `add_child()`
+- WorldScene `_on_battle_ended` uses `refund: int = 0` default so BossArena's 3-param signal still works
 
 ---
 
