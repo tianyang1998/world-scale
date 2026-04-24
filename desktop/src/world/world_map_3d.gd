@@ -1,0 +1,47 @@
+class_name WorldMap3D
+extends Node3D
+
+## Emitted when the player's CharacterBody3D enters a named trigger zone.
+## trigger_name is one of: "portal_left", "portal_right", "boss_lair", "store"
+signal trigger_entered(trigger_name: String)
+
+## Tier → ground color. From map-system.md §3.5.
+const TIER_COLORS: Dictionary = {
+    "Apprentice":  Color("#3a3828"),
+    "Initiate":    Color("#2e3a22"),
+    "Acolyte":     Color("#1e3a20"),
+    "Journeyman":  Color("#1e3828"),
+    "Adept":       Color("#1e2e38"),
+    "Scholar":     Color("#1e2240"),
+    "Sage":        Color("#2a1e40"),
+    "Arcanist":    Color("#30183a"),
+    "Exemplar":    Color("#351a2a"),
+    "Vanguard":    Color("#3a2210"),
+    "Master":      Color("#3a2a10"),
+    "Grandmaster": Color("#3a2808"),
+    "Champion":    Color("#3a1010"),
+    "Paragon":     Color("#3a0e0e"),
+    "Legend":      Color("#200020"),
+}
+
+@onready var terrain_mesh: MeshInstance3D = $Terrain/MeshInstance3D
+@onready var portal_left: Area3D = $Triggers/PortalLeft
+@onready var portal_right: Area3D = $Triggers/PortalRight
+@onready var boss_lair: Area3D = $Triggers/BossLair
+@onready var store_zone: Area3D = $Triggers/StoreZone
+
+func _ready() -> void:
+    apply_tier_theme(PlayerData.tier)
+    portal_left.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("portal_left"))
+    portal_right.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("portal_right"))
+    boss_lair.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("boss_lair"))
+    store_zone.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("store"))
+
+## Swaps the terrain material's albedo to the tier's ground color.
+func apply_tier_theme(tier: String) -> void:
+    if not TIER_COLORS.has(tier):
+        return
+    var mat := StandardMaterial3D.new()
+    mat.albedo_color = TIER_COLORS[tier]
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    terrain_mesh.set_surface_override_material(0, mat)
