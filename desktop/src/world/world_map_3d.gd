@@ -6,7 +6,7 @@ extends Node3D
 signal trigger_entered(trigger_name: String)
 
 ## Tier → ground color. From map-system.md §3.5.
-const TIER_COLORS: Dictionary = {
+const TIER_COLORS: Dictionary[String, Color] = {
     "Apprentice":  Color("#3a3828"),
     "Initiate":    Color("#2e3a22"),
     "Acolyte":     Color("#1e3a20"),
@@ -30,6 +30,8 @@ const TIER_COLORS: Dictionary = {
 @onready var boss_lair: Area3D = $Triggers/BossLair
 @onready var store_zone: Area3D = $Triggers/StoreZone
 
+var _terrain_mat: StandardMaterial3D = null
+
 func _ready() -> void:
     apply_tier_theme(PlayerData.tier)
     portal_left.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("portal_left"))
@@ -37,11 +39,13 @@ func _ready() -> void:
     boss_lair.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("boss_lair"))
     store_zone.body_entered.connect(func(_b: Node3D) -> void: trigger_entered.emit("store"))
 
-## Swaps the terrain material's albedo to the tier's ground color.
+## Swaps the terrain albedo to the tier's ground color. Reuses the cached material on repeated calls.
 func apply_tier_theme(tier: String) -> void:
     if not TIER_COLORS.has(tier):
+        push_warning("WorldMap3D: unknown tier '%s', terrain theme not applied" % tier)
         return
-    var mat := StandardMaterial3D.new()
-    mat.albedo_color = TIER_COLORS[tier]
-    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    terrain_mesh.set_surface_override_material(0, mat)
+    if _terrain_mat == null:
+        _terrain_mat = StandardMaterial3D.new()
+        _terrain_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        terrain_mesh.set_surface_override_material(0, _terrain_mat)
+    _terrain_mat.albedo_color = TIER_COLORS[tier]
