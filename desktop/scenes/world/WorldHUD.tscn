@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3 uid="uid://worldhud001"]
+
+[ext_resource type="Script" path="res://src/ui/world_hud.gd" id="world_hud_gd"]
+
+[node name="WorldHUD" type="CanvasLayer"]
+script = ExtResource("world_hud_gd")
+
+[node name="Panel" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="TierLabel" type="Label" parent="Panel"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 300.0
+offset_bottom = 44.0
+text = "Tier: "
+
+[node name="GoldLabel" type="Label" parent="Panel"]
+offset_left = 16.0
+offset_top = 48.0
+offset_right = 300.0
+offset_bottom = 76.0
+text = "Gold: "
+
+[node name="EscHint" type="Label" parent="Panel"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -32.0
+offset_right = 500.0
+offset_bottom = -8.0
+text = "ESC — release mouse | E — interact"
+modulate = Color(0.7, 0.7, 0.7, 1)
