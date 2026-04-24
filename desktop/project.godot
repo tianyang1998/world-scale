@@ -13,6 +13,7 @@ config/run/main_scene="res://scenes/ui/TitleScreen.tscn"
 
 [autoload]
 
+SupabaseConfig="*res://src/core/supabase_config.gd"
 PlayerData="*res://src/core/player_data.gd"
 GameManager="*res://src/core/game_manager.gd"
 AudioManager="*res://src/core/audio_manager.gd"

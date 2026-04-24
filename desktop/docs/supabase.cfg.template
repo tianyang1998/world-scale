@@ -1,0 +1,4 @@
+[supabase]
+project_id = YOUR_PROJECT_ID
+anon_key = YOUR_ANON_PUBLIC_KEY
+api_base = https://YOUR_PROJECT_ID.supabase.co

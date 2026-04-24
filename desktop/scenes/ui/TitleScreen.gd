@@ -3,7 +3,9 @@ extends Control
 
 enum Panel { AUTH, REALM_ACCUMULATOR, CREDENTIALS, NAME_ENTRY }
 
-const API_BASE := "https://YOUR_API_BASE_URL"
+# API base is read from SupabaseConfig (user://supabase.cfg) at call time.
+var _api_base: String:
+	get: return SupabaseConfig.api_base
 
 const PROFANITY_BLOCKLIST: Array[String] = [
 	"fuck", "shit", "ass", "bitch", "cunt", "dick", "pussy",
@@ -60,6 +62,11 @@ static var _profanity_regex: RegEx = null
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
+	if not SupabaseConfig.is_configured:
+		set_status("supabase.cfg missing — see docs/supabase-setup.md", true)
+		btn_login.disabled = true
+		btn_signup.disabled = true
+
 	btn_login.pressed.connect(_on_login_pressed)
 	btn_signup.pressed.connect(_on_signup_pressed)
 	btn_add_realm.pressed.connect(_on_add_realm_pressed)
@@ -140,7 +147,7 @@ func _on_login_pressed() -> void:
 	set_status("Logging in...", false)
 	_http_state = HttpState.AUTH
 	var err := http.request(
-		API_BASE + "/api/auth/login",
+		_api_base + "/api/auth/login",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		JSON.stringify({"email": email, "password": password})
@@ -160,7 +167,7 @@ func _on_signup_pressed() -> void:
 	set_status("Creating account...", false)
 	_http_state = HttpState.AUTH
 	var err := http.request(
-		API_BASE + "/api/auth/signup",
+		_api_base + "/api/auth/signup",
 		["Content-Type: application/json"],
 		HTTPClient.METHOD_POST,
 		JSON.stringify({"email": email, "password": password})
@@ -376,7 +383,7 @@ func _on_proceed_pressed() -> void:
 	set_status("Calculating power...", false)
 	_http_state = HttpState.SCORE
 	var err := http.request(
-		API_BASE + "/api/score",
+		_api_base + "/api/score",
 		["Content-Type: application/json", "Authorization: Bearer " + PlayerData.jwt],
 		HTTPClient.METHOD_POST,
 		JSON.stringify({"entries": entries})
@@ -464,7 +471,7 @@ func _call_save_character() -> void:
 	}
 	_http_state = HttpState.SAVE
 	var err := http.request(
-		API_BASE + "/api/character/save",
+		_api_base + "/api/character/save",
 		["Content-Type: application/json", "Authorization: Bearer " + PlayerData.jwt],
 		HTTPClient.METHOD_POST,
 		JSON.stringify(payload)
