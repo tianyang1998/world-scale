@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://localplayer001"]
+[gd_scene load_steps=5 format=3 uid="uid://localplayer001"]
 
 [ext_resource type="Script" path="res://src/world/local_player.gd" id="local_player_gd"]
 
@@ -13,8 +13,6 @@ height = 1.6
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1"]
 shading_mode = 0
 albedo_color = Color(0.44, 0.56, 0.75, 1)
-
-[sub_resource type="SpringArm3D" id="SpringArm3D_1"]
 
 [node name="LocalPlayer" type="CharacterBody3D"]
 collision_layer = 2

@@ -1,8 +1,11 @@
 class_name LocalPlayer
 extends CharacterBody3D
 
+## Emitted when the player walks into a portal Area3D. Direction is "left" or "right".
 signal portal_entered(direction: String)
+## Emitted when the player enters the boss lair proximity zone.
 signal boss_range_entered
+## Emitted when the player enters the store proximity zone.
 signal store_range_entered
 
 const SPEED: float = 24.0
@@ -41,16 +44,22 @@ func _physics_process(delta: float) -> void:
 	var move_dir: Vector3 = (forward * -input_dir.y + right * input_dir.x).normalized()
 	velocity.x = move_dir.x * SPEED if input_dir.length() > 0.01 else 0.0
 	velocity.z = move_dir.z * SPEED if input_dir.length() > 0.01 else 0.0
-	velocity.y -= 9.8 * delta
+	if is_on_floor():
+		velocity.y = 0.0
+	else:
+		velocity.y -= 9.8 * delta
 	move_and_slide()
 	if move_dir.length() > 0.01:
 		var target_angle: float = atan2(move_dir.x, move_dir.z)
 		var current_angle: float = rotation.y
 		rotation.y = lerp_angle(current_angle, target_angle, ROTATION_SPEED * delta)
 
+## Shows a context-sensitive interaction prompt above the player.
+## Called by WorldScene when the player enters a trigger zone.
 func show_interact_hint(text: String) -> void:
 	interact_hint.text = text
 	interact_hint.visible = true
 
+## Hides the interaction prompt. Called when the player leaves a trigger zone.
 func hide_interact_hint() -> void:
 	interact_hint.visible = false
