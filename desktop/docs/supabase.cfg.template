@@ -1,4 +1,4 @@
 [supabase]
-project_id = YOUR_PROJECT_ID
-anon_key = YOUR_ANON_PUBLIC_KEY
-api_base = https://YOUR_PROJECT_ID.supabase.co
+supabase_url = https://YOUR_PROJECT_ID.supabase.co
+anon_key     = YOUR_ANON_PUBLIC_KEY
+api_base     = https://YOUR_NEXTJS_DEPLOYMENT.vercel.app
