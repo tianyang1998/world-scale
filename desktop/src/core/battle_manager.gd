@@ -88,7 +88,89 @@ static func realm_skill_name(realm: String) -> String:
 	return "Realm Skill"
 
 
-# Returns the projectile kind for a player action.
+# ─── Boss PvE formulas (GDD §4) ──────────────────────────────────────────────
+# Boss uses subtraction formula for hits on players; player→boss still uses PvP formula.
+
+static func boss_normal_damage(boss_attack: int, player: BattleState) -> int:
+	var eff_def: float = player.effective_defence()
+	return max(1, boss_attack - int(eff_def))
+
+
+static func boss_skill_damage(boss_attack: int, multiplier: float,
+		player: BattleState) -> int:
+	var eff_def: float = player.effective_defence()
+	return max(1, int(round(boss_attack * multiplier)) - int(eff_def))
+
+
+static func boss_dot_tick(boss_attack: int) -> int:
+	return max(1, int(round(boss_attack * 0.15)))
+
+
+# Pick normal attack target per GDD §3.3 priority rules.
+# Mutates `rotation_index` by reference via the returned next index — caller
+# passes current index and receives next. Array must contain only alive players.
+static func pick_normal_target(players: Array[BattleState]) -> BattleState:
+	var alive: Array[BattleState] = []
+	for p: BattleState in players:
+		if not p.is_dead():
+			alive.append(p)
+	if alive.is_empty():
+		return null
+	# Priority 1: below 30% HP regardless of brace
+	var low_hp: Array[BattleState] = []
+	for p: BattleState in alive:
+		if p.current_hp < p.max_hp * 0.30:
+			low_hp.append(p)
+	if not low_hp.is_empty():
+		var best: BattleState = low_hp[0]
+		for p: BattleState in low_hp:
+			if p.current_hp < best.current_hp:
+				best = p
+		return best
+	# Priority 2: non-bracing preferred
+	var non_bracing: Array[BattleState] = []
+	for p: BattleState in alive:
+		if not p.is_bracing:
+			non_bracing.append(p)
+	return non_bracing[0] if not non_bracing.is_empty() else alive[0]
+
+
+# Pick skill target(s) per GDD §3.4.
+static func pick_skill_targets(players: Array[BattleState],
+		targets_all: bool, effect: String) -> Array[BattleState]:
+	var alive: Array[BattleState] = []
+	for p: BattleState in players:
+		if not p.is_dead():
+			alive.append(p)
+	if alive.is_empty():
+		return []
+	if targets_all:
+		return alive
+	# dot → highest attack; otherwise → lowest current HP
+	var best: BattleState = alive[0]
+	if effect == "dot":
+		for p: BattleState in alive:
+			if p.attack > best.attack:
+				best = p
+	else:
+		for p: BattleState in alive:
+			if p.current_hp < best.current_hp:
+				best = p
+	return [best]
+
+
+# Boss realm projectile kind (used for visual spawning).
+static func boss_projectile_kind(boss_realm: String) -> String:
+	match boss_realm:
+		"academia": return "beam_pulse"
+		"tech":     return "missile"
+		"medicine": return "dark_orb"
+		"creative": return "spiral"
+		"law":      return "gavel"
+	return "tentacle"
+
+
+# ─── Returns the projectile kind for a player action.
 static func projectile_kind_for_action(action: String, realm: String) -> String:
 	if action == "strike":
 		return "sword"

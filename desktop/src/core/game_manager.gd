@@ -34,6 +34,10 @@ func enter_pvp_arena() -> void:
 	current_state = State.PVP_ARENA
 
 
+func enter_pve_arena() -> void:
+	current_state = State.PVE_ARENA
+
+
 func show_result() -> void:
 	current_state = State.RESULT
 

@@ -4,6 +4,7 @@ const LOCAL_PLAYER_SCENE: PackedScene = preload("res://scenes/world/LocalPlayer.
 const REMOTE_PLAYER_SCENE: PackedScene = preload("res://scenes/world/RemotePlayer.tscn")
 const PREP_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/PrepScreen.tscn")
 const PVP_ARENA_SCENE: PackedScene = preload("res://scenes/world/PvPArena.tscn")
+const BOSS_ARENA_SCENE: PackedScene = preload("res://scenes/world/BossArena.tscn")
 const RESULT_SCREEN_SCENE: PackedScene = preload("res://scenes/ui/ResultScreen.tscn")
 
 const TIERS: Array[String] = [
@@ -87,7 +88,7 @@ func _on_portal(direction: int) -> void:
 
 
 func _on_boss_lair() -> void:
-	print("Boss lair entered — Phase 5 will wire PvE lobby")
+	_open_boss_arena()
 
 
 func _on_store() -> void:
@@ -174,6 +175,16 @@ func _on_battle_ended(won: bool, gold_delta: int, new_gold: int) -> void:
 	add_child(_result_screen)
 	_result_screen.show_result(won, gold_delta, new_gold)
 	_result_screen.continue_pressed.connect(_on_result_continue)
+
+
+func _open_boss_arena() -> void:
+	world_map.visible = false
+	if _local_player != null:
+		_local_player.visible = false
+	_pvp_arena = BOSS_ARENA_SCENE.instantiate()
+	add_child(_pvp_arena)
+	GameManager.enter_pve_arena()
+	_pvp_arena.battle_ended.connect(_on_battle_ended)
 
 
 func _on_result_continue() -> void:

@@ -87,7 +87,22 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - Gold delta: winner uses loser's `max_hp / 3` as proxy for gold (placeholder) — real gold from `PlayerData.gold` in networked play via server `battle/end`
 - `_process` in WorldScene skips move broadcast while not in WORLD state
 
-### Phase 5 — Not started
+### Phase 5 — COMPLETE (2026-04-24)
+
+- [x] `src/core/boss_data.gd` — all 15 bosses with exact stats from §3.1 balance pass; 5 realm skill definitions (effect, mult, debuff_frac, duration_ms, targets_all)
+- [x] `src/core/battle_manager.gd` — boss statics added: `boss_normal_damage()` (subtraction formula), `boss_skill_damage()` (mult-subtraction), `boss_dot_tick()` (×0.15), `pick_normal_target()` (§3.3 priority: <30%HP → non-bracing → round-robin), `pick_skill_targets()` (§3.4: all / highest-atk / lowest-HP), `boss_projectile_kind()`
+- [x] `src/world/boss_arena.gd` + `scenes/world/BossArena.tscn` — CanvasLayer (layer=5): boss HP bar with countdown label, player HP bar, Strike/Brace/Realm buttons, boss AI `_process` loop (atk + skill timers), DoT coroutine (5 ticks × 1s via `await`), all 5 skill effects (aoe_damage, single_damage, dot, defence_debuff, attack_debuff), victory/defeat → `battle_ended` signal
+- [x] `src/core/game_manager.gd` — `enter_pve_arena()` → `State.PVE_ARENA` added
+- [x] `src/world/world_scene.gd` — `_on_boss_lair()` now calls `_open_boss_arena()`; BossArena wired to shared `_on_battle_ended` / ResultScreen flow
+- [x] `tests/unit/test_boss_manager.gd` — 18 unit tests: normal damage (basic, min-1, with-debuff), skill damage (AoE, Absolute Verdict, min-1), DoT tick, targeting (low-HP priority, brace ignore on low-HP, non-bracing preference, all-bracing fallback, skip-dead, all-dead null), skill target (AoE, dot=highest-atk, single=lowest-HP, empty-when-all-dead), all-15-boss data completeness, projectile kind routing
+
+**Key implementation decisions:**
+- Boss→player hits use subtraction formula (`attack − defence`); player→boss hits use PvP percentile formula via `_boss_proxy: BattleState`
+- DoT implemented as `await get_tree().create_timer(1.0).timeout` coroutine; exits early if target dies or battle ends
+- Phase 5 is single-player only — BossArena holds `_players: Array[BattleState]` ready for multi-player wiring in Phase 5 networking (needs live Supabase creds)
+- BossArena reuses same `_on_battle_ended` / ResultScreen flow from WorldScene as PvP
+
+### Phase 6 — Not started
 
 ---
 
