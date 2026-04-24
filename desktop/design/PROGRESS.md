@@ -13,6 +13,48 @@ Reverse-documenting web game into GDDs for Godot 4 desktop port.
 - [x] `gdd/networking-system.md` — DB schema, all Realtime channels + events, API endpoints, leader election, desktop port options
 - [x] `gdd/audio-system.md` — 6 BGM tracks, 6 synthesized SFX with full synthesis parameters, volume overlay, Godot port equivalents
 
+## Implementation Progress
+
+### Phase 1 — COMPLETE (merged to main `56108be`, 2026-04-23)
+
+- [x] Godot 4.6 project initialized (`desktop/project.godot`, Forward+ renderer, 1280x720)
+- [x] 4 autoloads: `PlayerData`, `GameManager`, `AudioManager`, `NetworkManager`
+- [x] `Scorer` — 15-tier power system, percentile scoring, 11 unit tests (GdUnit4)
+- [x] `AudioManager` — BGM crossfade (Tween kill guard), ConfigFile volume persistence, 6 MP3 tracks
+- [x] `PlayerData` — multi-realm: `realm_scores: Dictionary` + `dominant_realm: String`
+- [x] `TitleScreen.tscn` — 5-panel layout (auth, accumulator, realm picker, credentials, name entry)
+- [x] `TitleScreen.gd` — email/password auth, multi-realm accumulator, HttpState enum routing, 8 name validation tests
+- [x] Placeholder `WorldScene.tscn`
+
+**Key implementation decisions:**
+- Multi-realm: players submit any subset of 5 realms; `total_power` = sum; `dominant_realm` = highest contributor
+- Returning users: DB realm scores pre-populated in accumulator; unedited realms skip `/api/score` on Proceed
+- `HttpState` enum routes all HTTP responses through a single handler (no signal swapping)
+- Static RegEx cache for name validation — compiled once per process, not per keystroke
+- `API_BASE` placeholder in `TitleScreen.gd` — replace with real Supabase URL before testing
+
+### Phase 2 — COMPLETE (2026-04-23)
+
+- [x] `src/world/local_player.gd` — CharacterBody3D, WASD at 24 m/s, SpringArm3D camera (8m, -60°), mouse-look, gravity guard, face-velocity lerp
+- [x] `scenes/world/LocalPlayer.tscn` — capsule collider (layer=2, mask=1), placeholder mesh, Label3D name tag (billboard), SpringArm3D > Camera3D (fov=60), interact hint
+- [x] `src/world/world_map_3d.gd` — trigger_entered signal, 15-tier TIER_COLORS (typed dict), cached terrain material, apply_tier_theme, Area3D body_entered lambdas
+- [x] `scenes/world/WorldMap3D.tscn` — 240×160m terrain, river dual-segment collision (12m bridge gap at X=84–96), 6 town buildings (StaticBody3D), 4 Area3D triggers (portals/boss/store), portal torus meshes, boss disc
+- [x] `src/ui/world_hud.gd` + `scenes/world/WorldHUD.tscn` — CanvasLayer overlay: tier name, gold, ESC hint
+- [x] `src/world/world_scene.gd` + `WorldScene.tscn` rewrite — ProceduralSky env, DirectionalLight3D, instances WorldMap3D + WorldHUD, spawns LocalPlayer at runtime with ±15m jitter
+- [x] `project.godot` — WASD + arrow key input map, interact (E key)
+- [x] Collision layers verified: world=1, player=2, triggers=4 (all .tscn files)
+
+**Key implementation decisions:**
+- Player speed: 24 m/s (= web 4px/frame × 60fps ÷ 10, matching 1px=0.1m scale)
+- River collision: two BoxShape3D segments leave a 12m walkable gap at bridge (X=84–96)
+- LocalPlayer runtime-spawned (not in WorldScene.tscn) for clean spawn-point passing
+- Terrain material cached in _terrain_mat; albedo mutated on tier changes (no reallocation)
+- Trigger handlers are print stubs — Phase 3 wires real portal/boss/store logic
+
+### Phase 3 — Not started
+
+---
+
 ## Remaining GDDs (in order)
 
 *All GDDs complete.*
