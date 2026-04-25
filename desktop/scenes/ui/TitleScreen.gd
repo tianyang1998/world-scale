@@ -57,11 +57,6 @@ static var _profanity_regex: RegEx = null
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	if not SupabaseConfig.is_configured:
-		set_status("supabase.cfg missing — see docs/supabase-setup.md", true)
-		btn_login.disabled = true
-		btn_signup.disabled = true
-
 	btn_login.pressed.connect(_on_login_pressed)
 	btn_signup.pressed.connect(_on_signup_pressed)
 	btn_add_realm.pressed.connect(_on_add_realm_pressed)

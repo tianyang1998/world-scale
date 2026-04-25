@@ -44,9 +44,6 @@ func _process(delta: float) -> void:
 func connect_to_map(tier: String) -> void:
 	if _connected:
 		disconnect_from_map()
-	if not SupabaseConfig.is_configured:
-		push_error("NetworkManager: cannot connect — SupabaseConfig not loaded")
-		return
 	_current_tier = tier
 	var url: String = SupabaseConfig.ws_url + "?apikey=" + SupabaseConfig.anon_key + "&vsn=1.0.0"
 	var err: Error = _ws.connect_to_url(url)
