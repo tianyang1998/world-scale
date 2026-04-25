@@ -143,7 +143,6 @@ func _supabase_headers_authed() -> PackedStringArray:
 		"Content-Type: application/json",
 		"apikey: " + SupabaseConfig.anon_key,
 		"Authorization: Bearer " + PlayerData.jwt,
-		"Prefer: return=representation",
 	])
 
 func _on_login_pressed() -> void:
@@ -527,23 +526,29 @@ func _call_save_character() -> void:
 	btn_save_char.disabled = true
 	set_status("Saving...", false)
 
-	var is_new: bool = PlayerData.gold == 0
-	var gold_bonus: int = 0
-	for realm: String in PlayerData.realm_scores:
-		gold_bonus += Scorer.calc_realm_gold_bonus(int(PlayerData.realm_scores[realm].get("power", 0)))
-	var new_gold: int = (500 if is_new else PlayerData.gold) + gold_bonus
+	# Only give signup bonus for truly new accounts (no existing character loaded)
+	# Only give realm bonus for realms entered this session (not DB-loaded ones)
+	var is_new_account: bool = PlayerData.character_name.is_empty() or PlayerData.gold == 0
+	var realm_bonus: int = 0
+	for realm: String in _pending_entries:
+		var entry: Dictionary = _pending_entries[realm]
+		if not entry.get("_loaded_from_db", false):
+			realm_bonus += Scorer.calc_realm_gold_bonus(int(PlayerData.realm_scores.get(realm, {}).get("power", 0)))
+	var new_gold: int = PlayerData.gold
+	if is_new_account:
+		new_gold = 500
+	new_gold += realm_bonus
 
 	var payload: Dictionary = {
-		"user_id":        PlayerData.user_id,
-		"name":           PlayerData.character_name,
-		"realms":         PlayerData.realm_scores,
-		"total_power":    PlayerData.total_power,
-		"gold":           new_gold,
-		"updated_at":     Time.get_datetime_string_from_system(false, true),
+		"user_id":     PlayerData.user_id,
+		"name":        PlayerData.character_name,
+		"realms":      PlayerData.realm_scores,
+		"total_power": PlayerData.total_power,
+		"gold":        new_gold,
+		"updated_at":  Time.get_datetime_string_from_system(false, true),
 	}
 
 	_http_state = HttpState.SAVE_CHARACTER
-	# Prefer: resolution=merge-duplicates upserts on conflict
 	var headers: PackedStringArray = _supabase_headers_authed()
 	headers.append("Prefer: resolution=merge-duplicates,return=representation")
 	var url: String = SupabaseConfig.supabase_url + "/rest/v1/characters"

@@ -33,19 +33,36 @@ var pending_broadcast: String = "basic"     # selected before boss raid entry
 
 func load_from_dict(data: Dictionary) -> void:
 	character_name = data.get("name", "")
-	dominant_realm = data.get("dominant_realm", "")
-	realm_scores = data.get("realm_scores", {})
+	# DB column is "realms"; dominant_realm and tier are derived locally
+	var raw_realms: Variant = data.get("realms", {})
+	realm_scores = raw_realms if raw_realms is Dictionary else {}
 	total_power = data.get("total_power", 0)
-	tier = data.get("tier", "Apprentice")
 	gold = data.get("gold", 0)
-	realm_skill = data.get("realm_skill", "")
+	# Derive tier and dominant_realm from stored data
+	tier = Scorer.get_tier(total_power)
+	dominant_realm = _dominant_realm_from_scores(realm_scores)
 	active_insurance = data.get("active_insurance", "none")
-	var raw_cosmetics = data.get("owned_cosmetics", [])
+	var raw_cosmetics: Variant = data.get("owned_cosmetics", [])
 	owned_cosmetics.clear()
-	for c in raw_cosmetics:
-		owned_cosmetics.append(str(c))
+	if raw_cosmetics is Array:
+		for c: Variant in raw_cosmetics:
+			owned_cosmetics.append(str(c))
 	equipped_title = data.get("equipped_title", "")
 	equipped_border = data.get("equipped_border", "")
+
+
+static func _dominant_realm_from_scores(scores: Dictionary) -> String:
+	var best_realm: String = ""
+	var best_power: int = 0
+	for realm: String in scores:
+		var entry: Variant = scores[realm]
+		var p: int = 0
+		if entry is Dictionary:
+			p = int(entry.get("power", 0))
+		if p > best_power:
+			best_power = p
+			best_realm = realm
+	return best_realm
 
 
 func clear() -> void:
