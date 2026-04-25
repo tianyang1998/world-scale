@@ -1,11 +1,12 @@
 class_name TitleScreen
 extends Control
 
-enum Panel { AUTH, REALM_ACCUMULATOR, CREDENTIALS, NAME_ENTRY }
-
-# API base is read from SupabaseConfig (user://supabase.cfg) at call time.
-var _api_base: String:
-	get: return SupabaseConfig.api_base
+# Talks directly to Supabase — no Next.js server needed.
+#
+# Auth:      POST {supabase_url}/auth/v1/token?grant_type=password   (login)
+#            POST {supabase_url}/auth/v1/signup                       (signup)
+# Character: GET/POST {supabase_url}/rest/v1/characters               (REST API)
+# Scoring:   done locally in GDScript using Scorer static methods
 
 const PROFANITY_BLOCKLIST: Array[String] = [
 	"fuck", "shit", "ass", "bitch", "cunt", "dick", "pussy",
@@ -13,16 +14,10 @@ const PROFANITY_BLOCKLIST: Array[String] = [
 	"faggot", "retard", "idiot", "moron", "anus", "cock"
 ]
 
-## Realm credentials accumulated locally before submitting.
-## Key = realm string, value = per-field Dictionary of raw inputs.
-## Loaded-from-DB entries carry "_loaded_from_db": true and "_power": int.
-var _pending_entries: Dictionary = {}
-
-## Which realm is currently being edited in the credential form.
+var _pending_entries: Dictionary = {}  # realm → field dict
 var _editing_realm: String = ""
 
-## Tracks which HTTP response we are waiting for.
-enum HttpState { NONE, AUTH, SCORE, SAVE }
+enum HttpState { NONE, LOGIN, SIGNUP, LOAD_CHARACTER, SAVE_CHARACTER }
 var _http_state: HttpState = HttpState.NONE
 
 static var _name_regex: RegEx = null
@@ -89,7 +84,7 @@ func _ready() -> void:
 	http.request_completed.connect(_on_http_response)
 	AudioManager.play_bgm("landing")
 
-# ── Panel visibility helpers ──────────────────────────────────────────────────
+# ── Panel visibility ──────────────────────────────────────────────────────────
 
 func _hide_all() -> void:
 	auth_container.visible = false
@@ -135,7 +130,21 @@ func _show_name_entry() -> void:
 	_hide_all()
 	name_container.visible = true
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# ── Auth — direct Supabase REST ───────────────────────────────────────────────
+
+func _supabase_headers() -> PackedStringArray:
+	return PackedStringArray([
+		"Content-Type: application/json",
+		"apikey: " + SupabaseConfig.anon_key,
+	])
+
+func _supabase_headers_authed() -> PackedStringArray:
+	return PackedStringArray([
+		"Content-Type: application/json",
+		"apikey: " + SupabaseConfig.anon_key,
+		"Authorization: Bearer " + PlayerData.jwt,
+		"Prefer: return=representation",
+	])
 
 func _on_login_pressed() -> void:
 	var email := email_input.text.strip_edges()
@@ -145,11 +154,10 @@ func _on_login_pressed() -> void:
 		return
 	_set_auth_buttons_disabled(true)
 	set_status("Logging in...", false)
-	_http_state = HttpState.AUTH
+	_http_state = HttpState.LOGIN
+	var url: String = SupabaseConfig.supabase_url + "/auth/v1/token?grant_type=password"
 	var err := http.request(
-		_api_base + "/api/auth/login",
-		["Content-Type: application/json"],
-		HTTPClient.METHOD_POST,
+		url, _supabase_headers(), HTTPClient.METHOD_POST,
 		JSON.stringify({"email": email, "password": password})
 	)
 	if err != OK:
@@ -165,11 +173,10 @@ func _on_signup_pressed() -> void:
 		return
 	_set_auth_buttons_disabled(true)
 	set_status("Creating account...", false)
-	_http_state = HttpState.AUTH
+	_http_state = HttpState.SIGNUP
+	var url: String = SupabaseConfig.supabase_url + "/auth/v1/signup"
 	var err := http.request(
-		_api_base + "/api/auth/signup",
-		["Content-Type: application/json"],
-		HTTPClient.METHOD_POST,
+		url, _supabase_headers(), HTTPClient.METHOD_POST,
 		JSON.stringify({"email": email, "password": password})
 	)
 	if err != OK:
@@ -183,40 +190,63 @@ func _set_auth_buttons_disabled(disabled: bool) -> void:
 
 func _on_auth_response(response_code: int, body: PackedByteArray) -> void:
 	_set_auth_buttons_disabled(false)
-	match response_code:
-		404:
-			set_status("No account found. Use Create Account.")
-			return
-		401:
-			set_status("Incorrect email or password.")
-			return
-		200:
-			pass
-		_:
-			set_status("Auth error (HTTP " + str(response_code) + ")")
-			return
 	var json := JSON.new()
 	if json.parse(body.get_string_from_utf8()) != OK:
 		set_status("Invalid response from server")
 		return
-	var raw: Variant = json.get_data()
-	if not raw is Dictionary:
+	var data: Variant = json.get_data()
+	if not data is Dictionary:
 		set_status("Unexpected response format")
 		return
-	var data: Dictionary = raw
-	PlayerData.jwt = data.get("jwt", "")
-	PlayerData.user_id = data.get("user_id", "")
-	var character: Variant = data.get("character", null)
-	if character is Dictionary:
+	var d: Dictionary = data
+
+	# Supabase returns error_code on failure
+	if d.has("error_code") or d.has("error"):
+		var msg: String = d.get("message", d.get("error", "Auth failed"))
+		set_status(msg)
+		return
+
+	PlayerData.jwt     = d.get("access_token", "")
+	PlayerData.user_id = d.get("user", {}).get("id", "")
+
+	if PlayerData.jwt.is_empty() or PlayerData.user_id.is_empty():
+		set_status("Auth failed — no token received")
+		return
+
+	PlayerData.is_authenticated = true
+	_load_character()
+
+# ── Character load — GET /rest/v1/characters ──────────────────────────────────
+
+func _load_character() -> void:
+	set_status("Loading character...", false)
+	_http_state = HttpState.LOAD_CHARACTER
+	var url: String = SupabaseConfig.supabase_url + \
+		"/rest/v1/characters?user_id=eq." + PlayerData.user_id + "&select=*"
+	var err := http.request(url, _supabase_headers_authed(), HTTPClient.METHOD_GET)
+	if err != OK:
+		set_status("Failed to load character")
+		_http_state = HttpState.NONE
+
+func _on_load_character_response(response_code: int, body: PackedByteArray) -> void:
+	var json := JSON.new()
+	if json.parse(body.get_string_from_utf8()) != OK or response_code != 200:
+		set_status("Failed to load character (HTTP %d)" % response_code)
+		return
+	var rows: Variant = json.get_data()
+	if rows is Array and (rows as Array).size() > 0:
+		var character: Dictionary = (rows as Array)[0]
 		PlayerData.load_from_dict(character)
+		# Rebuild pending entries from existing realm_scores so user sees their history
 		_pending_entries = _realm_scores_to_pending(PlayerData.realm_scores)
-		PlayerData.is_authenticated = true
 	_show_accumulator()
 
 func _realm_scores_to_pending(scores: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for realm: String in scores:
-		result[realm] = {"_loaded_from_db": true, "_power": scores[realm]}
+		var entry: Variant = scores[realm]
+		if entry is Dictionary:
+			result[realm] = {"_loaded_from_db": true, "_power": int(entry.get("power", 0))}
 	return result
 
 # ── Realm accumulator ─────────────────────────────────────────────────────────
@@ -237,7 +267,7 @@ func _rebuild_realm_list() -> void:
 		if entry.get("_loaded_from_db", false):
 			lbl.text = realm.capitalize() + "  —  " + str(entry.get("_power", 0)) + " pts"
 		else:
-			lbl.text = realm.capitalize() + "  —  (pending submit)"
+			lbl.text = realm.capitalize() + "  —  (pending)"
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var btn_edit := Button.new()
 		btn_edit.text = "Edit"
@@ -254,10 +284,9 @@ func _update_total_power_label() -> void:
 	var known_power: int = 0
 	for realm: String in _pending_entries:
 		var entry: Dictionary = _pending_entries[realm]
-		if entry.get("_loaded_from_db", false):
-			known_power += int(entry.get("_power", 0))
+		known_power += int(entry.get("_power", 0))
 	if known_power > 0:
-		total_power_label.text = "Known total: " + str(known_power) + " pts (recalculated on Proceed)"
+		total_power_label.text = "Known total: %d pts" % known_power
 	else:
 		total_power_label.text = "Submit credentials to calculate power."
 
@@ -284,36 +313,36 @@ func _prefill_form(realm: String) -> void:
 	match realm:
 		"academia":
 			var f := credential_container.get_node("AcademiaForm")
-			f.get_node("YearsActive").value = entry.get("years", 0)
-			f.get_node("HIndex").value = entry.get("h_index", 0)
-			f.get_node("Citations").value = entry.get("citations", 0)
-			f.get_node("Publications").value = entry.get("publications", 0)
-			f.get_node("I10Index").value = entry.get("i10", 0)
+			f.get_node("YearsActive").value   = entry.get("years", 0)
+			f.get_node("HIndex").value         = entry.get("h_index", 0)
+			f.get_node("Citations").value      = entry.get("citations", 0)
+			f.get_node("Publications").value   = entry.get("publications", 0)
+			f.get_node("I10Index").value       = entry.get("i10", 0)
 		"tech":
 			var f := credential_container.get_node("TechForm")
 			f.get_node("YearsActive").value = entry.get("years", 0)
-			f.get_node("Followers").value = entry.get("followers", 0)
-			f.get_node("Stars").value = entry.get("stars", 0)
-			f.get_node("Repos").value = entry.get("repos", 0)
-			f.get_node("Commits").value = entry.get("commits", 0)
+			f.get_node("Followers").value   = entry.get("followers", 0)
+			f.get_node("Stars").value       = entry.get("stars", 0)
+			f.get_node("Repos").value       = entry.get("repos", 0)
+			f.get_node("Commits").value     = entry.get("commits", 0)
 		"medicine":
 			var f := credential_container.get_node("MedicineForm")
 			f.get_node("YearsPracticing").value = entry.get("years", 0)
-			f.get_node("Papers").value = entry.get("papers", 0)
-			f.get_node("Citations").value = entry.get("citations", 0)
-			f.get_node("Patients").value = entry.get("patients", 0)
+			f.get_node("Papers").value          = entry.get("papers", 0)
+			f.get_node("Citations").value       = entry.get("citations", 0)
+			f.get_node("Patients").value        = entry.get("patients", 0)
 		"creative":
 			var f := credential_container.get_node("CreativeForm")
 			f.get_node("YearsActive").value = entry.get("years", 0)
-			f.get_node("Works").value = entry.get("works", 0)
-			f.get_node("Awards").value = entry.get("awards", 0)
-			f.get_node("Audience").value = entry.get("audience", 0)
+			f.get_node("Works").value       = entry.get("works", 0)
+			f.get_node("Awards").value      = entry.get("awards", 0)
+			f.get_node("Audience").value    = entry.get("audience", 0)
 		"law":
 			var f := credential_container.get_node("LawForm")
 			f.get_node("YearsPracticing").value = entry.get("years", 0)
-			f.get_node("Cases").value = entry.get("cases", 0)
-			f.get_node("Wins").value = entry.get("wins", 0)
-			f.get_node("Admissions").value = entry.get("admissions", 0)
+			f.get_node("Cases").value           = entry.get("cases", 0)
+			f.get_node("Wins").value            = entry.get("wins", 0)
+			f.get_node("Admissions").value      = entry.get("admissions", 0)
 
 func _on_submit_realm() -> void:
 	var fields := _read_form_fields(_editing_realm)
@@ -325,103 +354,136 @@ func _read_form_fields(realm: String) -> Dictionary:
 	match realm:
 		"academia":
 			var f := credential_container.get_node("AcademiaForm")
-			fields["years"] = f.get_node("YearsActive").value
-			fields["h_index"] = f.get_node("HIndex").value
-			fields["citations"] = f.get_node("Citations").value
+			fields["years"]        = f.get_node("YearsActive").value
+			fields["h_index"]      = f.get_node("HIndex").value
+			fields["citations"]    = f.get_node("Citations").value
 			fields["publications"] = f.get_node("Publications").value
-			fields["i10"] = f.get_node("I10Index").value
+			fields["i10"]          = f.get_node("I10Index").value
 		"tech":
 			var f := credential_container.get_node("TechForm")
-			fields["years"] = f.get_node("YearsActive").value
+			fields["years"]     = f.get_node("YearsActive").value
 			fields["followers"] = f.get_node("Followers").value
-			fields["stars"] = f.get_node("Stars").value
-			fields["repos"] = f.get_node("Repos").value
-			fields["commits"] = f.get_node("Commits").value
+			fields["stars"]     = f.get_node("Stars").value
+			fields["repos"]     = f.get_node("Repos").value
+			fields["commits"]   = f.get_node("Commits").value
 		"medicine":
 			var f := credential_container.get_node("MedicineForm")
-			fields["years"] = f.get_node("YearsPracticing").value
-			fields["papers"] = f.get_node("Papers").value
-			fields["citations"] = f.get_node("Citations").value
+			fields["years"]    = f.get_node("YearsPracticing").value
+			fields["papers"]   = f.get_node("Papers").value
+			fields["citations"]= f.get_node("Citations").value
 			fields["patients"] = f.get_node("Patients").value
 		"creative":
 			var f := credential_container.get_node("CreativeForm")
-			fields["years"] = f.get_node("YearsActive").value
-			fields["works"] = f.get_node("Works").value
-			fields["awards"] = f.get_node("Awards").value
+			fields["years"]    = f.get_node("YearsActive").value
+			fields["works"]    = f.get_node("Works").value
+			fields["awards"]   = f.get_node("Awards").value
 			fields["audience"] = f.get_node("Audience").value
 		"law":
 			var f := credential_container.get_node("LawForm")
-			fields["years"] = f.get_node("YearsPracticing").value
-			fields["cases"] = f.get_node("Cases").value
-			fields["wins"] = f.get_node("Wins").value
+			fields["years"]      = f.get_node("YearsPracticing").value
+			fields["cases"]      = f.get_node("Cases").value
+			fields["wins"]       = f.get_node("Wins").value
 			fields["admissions"] = f.get_node("Admissions").value
 		_:
 			push_error("TitleScreen: _read_form_fields unknown realm '%s'" % realm)
 	return fields
 
-# ── Proceed → POST /api/score ─────────────────────────────────────────────────
+# ── Proceed — score locally + save ───────────────────────────────────────────
 
 func _on_proceed_pressed() -> void:
 	btn_proceed.disabled = true
-	# Only send realms the user actually filled in this session (not DB-only sentinels).
-	var entries: Array = []
+	set_status("Calculating power...", false)
+
+	# Score each newly-entered realm locally
+	var realm_scores: Dictionary = {}
+	var total_power: int = 0
+	var dominant_realm: String = ""
+	var dominant_power: int = 0
+
 	for realm: String in _pending_entries:
 		var entry: Dictionary = _pending_entries[realm]
-		if entry.get("_loaded_from_db", false):
-			continue
-		var payload := entry.duplicate()
-		payload["realm"] = realm
-		entries.append(payload)
-	# If no new entries, all realms are DB-loaded — scores are current; skip re-score.
-	if entries.is_empty():
-		if PlayerData.character_name.is_empty():
-			_show_name_entry()
-		else:
-			_call_save_character()
-		btn_proceed.disabled = false
-		return
-	set_status("Calculating power...", false)
-	_http_state = HttpState.SCORE
-	var err := http.request(
-		_api_base + "/api/score",
-		["Content-Type: application/json", "Authorization: Bearer " + PlayerData.jwt],
-		HTTPClient.METHOD_POST,
-		JSON.stringify({"entries": entries})
-	)
-	if err != OK:
-		set_status("Network error: " + str(err))
-		btn_proceed.disabled = false
-		_http_state = HttpState.NONE
+		var result: Dictionary
 
-func _on_score_response(response_code: int, body: PackedByteArray) -> void:
-	btn_proceed.disabled = false
-	if response_code != 200:
-		set_status("Score API error (HTTP " + str(response_code) + ")")
-		return
-	var json := JSON.new()
-	if json.parse(body.get_string_from_utf8()) != OK:
-		set_status("Invalid response from server")
-		return
-	var raw: Variant = json.get_data()
-	if not raw is Dictionary:
-		set_status("Unexpected response format")
-		return
-	var data: Dictionary = raw
-	PlayerData.total_power = data.get("total_power", 0)
-	PlayerData.tier = data.get("tier", "Apprentice")
-	PlayerData.dominant_realm = data.get("dominant_realm", "")
-	PlayerData.realm_scores = data.get("realm_scores", {})
-	PlayerData.expertise = data.get("expertise", 0.0)
-	PlayerData.prestige = data.get("prestige", 0.0)
-	PlayerData.impact = data.get("impact", 0.0)
-	PlayerData.credentials = data.get("credentials", 0.0)
-	PlayerData.network = data.get("network", 0.0)
-	PlayerData.realm_skill = data.get("realm_skill", "")
-	set_status("Power: " + str(PlayerData.total_power) + " — Tier: " + PlayerData.tier, false)
+		if entry.get("_loaded_from_db", false):
+			# Keep existing DB score as-is
+			var existing: Variant = PlayerData.realm_scores.get(realm, {})
+			if existing is Dictionary:
+				result = {
+					"power": int(existing.get("power", 0)),
+					"expertise":   float(existing.get("expertise", 0)),
+					"prestige":    float(existing.get("prestige", 0)),
+					"impact":      float(existing.get("impact", 0)),
+					"credentials": float(existing.get("credentials", 0)),
+					"network":     float(existing.get("network", 0)),
+				}
+			else:
+				result = {"power": entry.get("_power", 0), "expertise": 0.0, "prestige": 0.0,
+					"impact": 0.0, "credentials": 0.0, "network": 0.0}
+		else:
+			result = _score_realm(realm, entry)
+
+		realm_scores[realm] = result
+		total_power += int(result["power"])
+		if int(result["power"]) > dominant_power:
+			dominant_power = int(result["power"])
+			dominant_realm = realm
+
+	PlayerData.total_power   = total_power
+	PlayerData.dominant_realm = dominant_realm
+	PlayerData.realm_scores  = realm_scores
+	PlayerData.tier          = Scorer.get_tier(total_power)
+
+	set_status("Power: %d — Tier: %s" % [total_power, PlayerData.tier], false)
+
 	if PlayerData.character_name.is_empty():
 		_show_name_entry()
 	else:
 		_call_save_character()
+
+	btn_proceed.disabled = false
+
+
+func _score_realm(realm: String, fields: Dictionary) -> Dictionary:
+	match realm:
+		"academia":
+			return Scorer.score_academia(
+				float(fields.get("h_index", 0)),
+				float(fields.get("citations", 0)),
+				float(fields.get("years", 0)),
+				float(fields.get("publications", 0)),
+				float(fields.get("i10", 0))
+			)
+		"tech":
+			return Scorer.score_tech(
+				float(fields.get("repos", 0)),
+				float(fields.get("stars", 0)),
+				float(fields.get("followers", 0)),
+				float(fields.get("commits", 0)),
+				float(fields.get("years", 0))
+			)
+		"medicine":
+			return Scorer.score_medicine(
+				float(fields.get("years", 0)),
+				float(fields.get("papers", 0)),
+				float(fields.get("citations", 0)),
+				float(fields.get("patients", 0))
+			)
+		"creative":
+			return Scorer.score_creative(
+				float(fields.get("years", 0)),
+				float(fields.get("works", 0)),
+				float(fields.get("awards", 0)),
+				float(fields.get("audience", 0)),
+				0.0
+			)
+		"law":
+			return Scorer.score_law(
+				float(fields.get("years", 0)),
+				float(fields.get("cases", 0)),
+				float(fields.get("wins", 0)),
+				float(fields.get("admissions", 0))
+			)
+	return {"power": 0, "expertise": 0.0, "prestige": 0.0, "impact": 0.0, "credentials": 0.0, "network": 0.0}
 
 # ── Name entry ────────────────────────────────────────────────────────────────
 
@@ -459,57 +521,71 @@ func _on_save_character() -> void:
 	PlayerData.character_name = char_name
 	_call_save_character()
 
+# ── Character save — UPSERT /rest/v1/characters ───────────────────────────────
+
 func _call_save_character() -> void:
 	btn_save_char.disabled = true
 	set_status("Saving...", false)
+
+	var is_new: bool = PlayerData.gold == 0
+	var gold_bonus: int = 0
+	for realm: String in PlayerData.realm_scores:
+		gold_bonus += Scorer.calc_realm_gold_bonus(int(PlayerData.realm_scores[realm].get("power", 0)))
+	var new_gold: int = (500 if is_new else PlayerData.gold) + gold_bonus
+
 	var payload: Dictionary = {
-		"name": PlayerData.character_name,
-		"dominant_realm": PlayerData.dominant_realm,
-		"realm_scores": PlayerData.realm_scores,
-		"total_power": PlayerData.total_power,
-		"tier": PlayerData.tier,
+		"user_id":        PlayerData.user_id,
+		"name":           PlayerData.character_name,
+		"realms":         PlayerData.realm_scores,
+		"total_power":    PlayerData.total_power,
+		"gold":           new_gold,
+		"updated_at":     Time.get_datetime_string_from_system(false, true),
 	}
-	_http_state = HttpState.SAVE
-	var err := http.request(
-		_api_base + "/api/character/save",
-		["Content-Type: application/json", "Authorization: Bearer " + PlayerData.jwt],
-		HTTPClient.METHOD_POST,
-		JSON.stringify(payload)
-	)
+
+	_http_state = HttpState.SAVE_CHARACTER
+	# Prefer: resolution=merge-duplicates upserts on conflict
+	var headers: PackedStringArray = _supabase_headers_authed()
+	headers.append("Prefer: resolution=merge-duplicates,return=representation")
+	var url: String = SupabaseConfig.supabase_url + "/rest/v1/characters"
+	var err := http.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(payload))
 	if err != OK:
 		set_status("Network error saving character")
 		btn_save_char.disabled = false
 		_http_state = HttpState.NONE
 
-func _on_save_response(response_code: int, body: PackedByteArray) -> void:
+func _on_save_character_response(response_code: int, body: PackedByteArray) -> void:
 	btn_save_char.disabled = false
-	if response_code != 200:
-		var msg := body.get_string_from_utf8()
-		if "already taken" in msg or "duplicate" in msg.to_lower():
+	if response_code != 200 and response_code != 201:
+		var msg: String = body.get_string_from_utf8()
+		if "duplicate" in msg.to_lower() or "unique" in msg.to_lower():
 			set_status("Name already taken — try another.")
 		else:
-			set_status("Save failed (HTTP " + str(response_code) + ")")
+			set_status("Save failed (HTTP %d)" % response_code)
 		return
+
 	var json := JSON.new()
 	if json.parse(body.get_string_from_utf8()) != OK:
 		set_status("Invalid response from server")
 		return
 	var raw: Variant = json.get_data()
-	if not raw is Dictionary:
-		set_status("Unexpected response format")
-		return
-	PlayerData.gold = (raw as Dictionary).get("gold", 500)
+	var saved: Dictionary = {}
+	if raw is Array and (raw as Array).size() > 0:
+		saved = (raw as Array)[0]
+	elif raw is Dictionary:
+		saved = raw
+
+	PlayerData.gold = int(saved.get("gold", PlayerData.gold))
 	PlayerData.is_authenticated = true
 	GameManager.go_to_world()
 
-# ── HTTP routing ──────────────────────────────────────────────────────────────
+# ── HTTP router ───────────────────────────────────────────────────────────────
 
 func _on_http_response(
 	result: int, response_code: int,
 	_headers: PackedStringArray, body: PackedByteArray
 ) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS:
-		set_status("Connection failed (result " + str(result) + ")")
+		set_status("Connection failed (result %d)" % result)
 		_set_auth_buttons_disabled(false)
 		btn_proceed.disabled = _pending_entries.is_empty()
 		btn_save_char.disabled = false
@@ -518,10 +594,14 @@ func _on_http_response(
 	var state := _http_state
 	_http_state = HttpState.NONE
 	match state:
-		HttpState.AUTH:  _on_auth_response(response_code, body)
-		HttpState.SCORE: _on_score_response(response_code, body)
-		HttpState.SAVE:  _on_save_response(response_code, body)
-		_: push_error("TitleScreen: HTTP response with no matching state")
+		HttpState.LOGIN, HttpState.SIGNUP:
+			_on_auth_response(response_code, body)
+		HttpState.LOAD_CHARACTER:
+			_on_load_character_response(response_code, body)
+		HttpState.SAVE_CHARACTER:
+			_on_save_character_response(response_code, body)
+		_:
+			push_error("TitleScreen: HTTP response with no matching state")
 
 # ── Status ────────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,3 @@
 [supabase]
 supabase_url = https://YOUR_PROJECT_ID.supabase.co
-anon_key     = YOUR_ANON_PUBLIC_KEY
-api_base     = https://YOUR_NEXTJS_DEPLOYMENT.vercel.app
+anon_key     = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
