@@ -1,6 +1,10 @@
 # Godot cache
 .godot/
 
+# Godot-generated metadata (engine-local, not portable)
+*.uid
+*.import
+
 # Git worktrees
 .worktrees/
 

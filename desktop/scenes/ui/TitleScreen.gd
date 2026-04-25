@@ -182,7 +182,7 @@ func _set_auth_buttons_disabled(disabled: bool) -> void:
 	btn_login.disabled = disabled
 	btn_signup.disabled = disabled
 
-func _on_auth_response(response_code: int, body: PackedByteArray) -> void:
+func _on_auth_response(_response_code: int, body: PackedByteArray) -> void:
 	_set_auth_buttons_disabled(false)
 	var json := JSON.new()
 	if json.parse(body.get_string_from_utf8()) != OK:
@@ -348,36 +348,36 @@ func _read_form_fields(realm: String) -> Dictionary:
 	match realm:
 		"academia":
 			var f := credential_container.get_node("AcademiaForm")
-			fields["years"]        = f.get_node("YearsActive").value
-			fields["h_index"]      = f.get_node("HIndex").value
-			fields["citations"]    = f.get_node("Citations").value
-			fields["publications"] = f.get_node("Publications").value
-			fields["i10"]          = f.get_node("I10Index").value
+			fields["years"]        = f.get_node("Row1/YearsActive").value
+			fields["h_index"]      = f.get_node("Row2/HIndex").value
+			fields["citations"]    = f.get_node("Row3/Citations").value
+			fields["publications"] = f.get_node("Row4/Publications").value
+			fields["i10"]          = f.get_node("Row5/I10Index").value
 		"tech":
 			var f := credential_container.get_node("TechForm")
-			fields["years"]     = f.get_node("YearsActive").value
-			fields["followers"] = f.get_node("Followers").value
-			fields["stars"]     = f.get_node("Stars").value
-			fields["repos"]     = f.get_node("Repos").value
-			fields["commits"]   = f.get_node("Commits").value
+			fields["years"]     = f.get_node("Row1/YearsActive").value
+			fields["followers"] = f.get_node("Row2/Followers").value
+			fields["stars"]     = f.get_node("Row3/Stars").value
+			fields["repos"]     = f.get_node("Row4/Repos").value
+			fields["commits"]   = f.get_node("Row5/Commits").value
 		"medicine":
 			var f := credential_container.get_node("MedicineForm")
-			fields["years"]    = f.get_node("YearsPracticing").value
-			fields["papers"]   = f.get_node("Papers").value
-			fields["citations"]= f.get_node("Citations").value
-			fields["patients"] = f.get_node("Patients").value
+			fields["years"]     = f.get_node("Row1/YearsPracticing").value
+			fields["papers"]    = f.get_node("Row2/Papers").value
+			fields["citations"] = f.get_node("Row3/Citations").value
+			fields["patients"]  = f.get_node("Row4/Patients").value
 		"creative":
 			var f := credential_container.get_node("CreativeForm")
-			fields["years"]    = f.get_node("YearsActive").value
-			fields["works"]    = f.get_node("Works").value
-			fields["awards"]   = f.get_node("Awards").value
-			fields["audience"] = f.get_node("Audience").value
+			fields["years"]    = f.get_node("Row1/YearsActive").value
+			fields["works"]    = f.get_node("Row2/Works").value
+			fields["awards"]   = f.get_node("Row3/Awards").value
+			fields["audience"] = f.get_node("Row4/Audience").value
 		"law":
 			var f := credential_container.get_node("LawForm")
-			fields["years"]      = f.get_node("YearsPracticing").value
-			fields["cases"]      = f.get_node("Cases").value
-			fields["wins"]       = f.get_node("Wins").value
-			fields["admissions"] = f.get_node("Admissions").value
+			fields["years"]      = f.get_node("Row1/YearsPracticing").value
+			fields["cases"]      = f.get_node("Row2/Cases").value
+			fields["wins"]       = f.get_node("Row3/Wins").value
+			fields["admissions"] = f.get_node("Row4/Admissions").value
 		_:
 			push_error("TitleScreen: _read_form_fields unknown realm '%s'" % realm)
 	return fields
@@ -481,22 +481,22 @@ func _score_realm(realm: String, fields: Dictionary) -> Dictionary:
 
 # ── Name entry ────────────────────────────────────────────────────────────────
 
-static func is_valid_name(name: String) -> bool:
-	if name.length() < 2 or name.length() > 30:
+static func is_valid_name(player_name: String) -> bool:
+	if player_name.length() < 2 or player_name.length() > 30:
 		return false
 	if _name_regex == null:
 		_name_regex = RegEx.new()
 		_name_regex.compile("^[a-zA-Z0-9 \\-'.]+$")
-	if not _name_regex.search(name):
+	if not _name_regex.search(player_name):
 		return false
 	return true
 
-func _contains_profanity(name: String) -> bool:
+func _contains_profanity(player_name: String) -> bool:
 	if _profanity_regex == null:
 		_profanity_regex = RegEx.new()
 		var pattern := "\\b(" + "|".join(PROFANITY_BLOCKLIST) + ")\\b"
 		_profanity_regex.compile(pattern)
-	return _profanity_regex.search(name.to_lower()) != null
+	return _profanity_regex.search(player_name.to_lower()) != null
 
 func _on_name_changed(new_text: String) -> void:
 	if new_text.is_empty():

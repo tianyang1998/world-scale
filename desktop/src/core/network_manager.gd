@@ -1,4 +1,3 @@
-class_name NetworkManager
 extends Node
 
 # Supabase Realtime WebSocket client.

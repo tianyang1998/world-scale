@@ -155,10 +155,9 @@ func _on_challenge_received(from_id: String, from_name: String, battle_id: Strin
 	dialog.popup_centered()
 
 
-func _on_pve_invite_received(from_id: String, from_name: String,
+func _on_pve_invite_received(_from_id: String, from_name: String,
 		boss_name: String, _battle_id: String) -> void:
 	print("PvE invite from %s — boss: %s — Phase 5 will show modal" % [from_name, boss_name])
-	_ = from_id
 
 
 # ─── PvP flow ─────────────────────────────────────────────────────────────────

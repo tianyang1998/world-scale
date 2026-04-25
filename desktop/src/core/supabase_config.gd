@@ -1,4 +1,3 @@
-class_name SupabaseConfig
 extends Node
 
 # Public Supabase credentials — safe to ship with the game.

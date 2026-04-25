@@ -1,4 +1,3 @@
-class_name AudioManager
 extends Node
 
 const BGM_PATH := "res://assets/audio/bgm/"
@@ -30,21 +29,22 @@ func play_bgm(track: String) -> void:
 		_active_tween.kill()
 	_current_track = track
 	var next_idx := 1 - _active_idx
-	var stream: AudioStream = load(BGM_PATH + track + ".mp3")
+	var stream: AudioStreamMP3 = load(BGM_PATH + track + ".mp3")
+	stream.loop = LOOPS.get(track, true)
 	_players[next_idx].stream = stream
-	_players[next_idx].volume_db = linear_to_db(0.0)
+	_players[next_idx].volume_db = -80.0
 	_players[next_idx].play()
 	var tween := create_tween()
 	_active_tween = tween
 	tween.set_parallel(true)
 	tween.tween_property(
 		_players[_active_idx], "volume_db",
-		linear_to_db(0.0), CROSSFADE_DURATION
+		-80.0, CROSSFADE_DURATION
 	).from(linear_to_db(_bgm_volume))
 	tween.tween_property(
 		_players[next_idx], "volume_db",
 		linear_to_db(_bgm_volume), CROSSFADE_DURATION
-	).from(linear_to_db(0.0))
+	).from(-80.0)
 	tween.chain().tween_callback(_players[_active_idx].stop)
 	_active_idx = next_idx
 	if not LOOPS.get(track, true):

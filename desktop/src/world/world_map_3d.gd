@@ -47,5 +47,18 @@ func apply_tier_theme(tier: String) -> void:
     if _terrain_mat == null:
         _terrain_mat = StandardMaterial3D.new()
         _terrain_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        # Checkerboard grid: alternate between base color and a slightly lighter shade
+        # uv1_scale tiles the UVs so each tile = 10m × 10m on the 240×160m terrain
+        _terrain_mat.uv1_scale = Vector3(24.0, 16.0, 1.0)
         terrain_mesh.set_surface_override_material(0, _terrain_mat)
-    _terrain_mat.albedo_color = TIER_COLORS[tier]
+    var base: Color = TIER_COLORS[tier]
+    # Slightly lighter shade for the checker — keeps the palette but adds contrast
+    var light: Color = base.lightened(0.12)
+    var image := Image.create(2, 2, false, Image.FORMAT_RGB8)
+    image.set_pixel(0, 0, base)
+    image.set_pixel(1, 1, base)
+    image.set_pixel(1, 0, light)
+    image.set_pixel(0, 1, light)
+    var tex := ImageTexture.create_from_image(image)
+    _terrain_mat.albedo_texture = tex
+    _terrain_mat.albedo_color = Color.WHITE

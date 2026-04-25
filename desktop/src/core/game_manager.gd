@@ -1,4 +1,3 @@
-class_name GameManager
 extends Node
 
 enum State { TITLE, WORLD, PVP_PREP, PVP_ARENA, PVE_PREP, PVE_ARENA, RESULT }
